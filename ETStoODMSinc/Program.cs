@@ -104,8 +104,8 @@ namespace ETStoODMSIncremental
                                            (Path.GetDirectoryName(alstomETSFilename),
                                             "Customer.sql");
 
-//            ExtensionsOutput oF = new ExtensionsOutput(ExtensionsOFilename, excelFilename);  //create the Extensions output files
-//            SQLOutput SQLOF1 = new SQLOutput(SQLOutputFilename);  //Create the sql output file used for ODMS
+            ExtensionsOutput oF = new ExtensionsOutput(ExtensionsOFilename, excelFilename);  //create the Extensions output files
+            SQLOutput SQLOF1 = new SQLOutput(SQLOutputFilename);  //Create the sql output file used for ODMS
 
             CalcEngine.CalcEngine calculationEngine = new CalcEngine.CalcEngine();
 
@@ -131,7 +131,7 @@ namespace ETStoODMSIncremental
 
                 Utils.WriteTimeToConsoleAndLog(String.Format("Adding instances to incremental file for {0}", className));
 
-//                ExtensionsOutput.LoadDictionary(classConfiguration, classMappingName, excelFilename); // Create entries in the output file and load the summary dictionary
+                ExtensionsOutput.LoadDictionary(classConfiguration, classMappingName, excelFilename); // Create entries in the output files and load the summary dictionary
 
                 foreach (Assignment assignment in classConfiguration.Assignments)
 				{
@@ -406,8 +406,8 @@ namespace ETStoODMSIncremental
 
 			iF.Save();
 
-//            ExtensionsOutput.DumpSummary();     //Top off the output file with the Summary Report of unique extensions
-//            SQLOutput.Cleanup();  //Close the SQL output file
+            ExtensionsOutput.DumpSummary();     //Top off the output file with the Summary Report of unique extensions
+            SQLOutput.Cleanup();  //Close the SQL output file
 
             DialogResult result = MessageBox.Show("Delete ETS Subset file created for this conversion?",
                                                   "Incremental File Creation Complete",
