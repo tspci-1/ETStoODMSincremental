@@ -7,7 +7,19 @@ using System.Threading.Tasks;
 namespace ETStoODMSIncremental
 {
 	class ETSClassConfiguration
-	{
+    {
+        private bool inputOnly;
+        public bool InputOnly
+        {
+            get { return inputOnly; }
+        }
+
+        private bool isMethod;
+        public bool IsMethod
+        {
+            get { return isMethod; }
+        }
+
 		private string className;
 		public string ClassName
 		{
@@ -17,19 +29,13 @@ namespace ETStoODMSIncremental
 		private string classMappingName;
         public string ClassMappingName
         {
-            get
-            {
-                return classMappingName;
-            }
+            get { return classMappingName; }
         }
 
         private bool newUndefinedClass;
         public bool NewUndefinedClass
         {
-            get
-            {
-                return newUndefinedClass;
-            }
+            get { return newUndefinedClass; }
         }
 
         private bool headerError;
@@ -72,6 +78,43 @@ namespace ETStoODMSIncremental
             }
         }
 
+        private List<string> parameters;
+        public List<string> Parameters
+        {
+            get
+            {
+                return parameters;
+            }
+        }
+        public string GetMethodParameter(int index)
+        {
+            string returnValue = String.Empty;
+
+            if (index <= parameters.Count)
+            {
+                returnValue = parameters[index];
+            }
+
+            return returnValue;
+        }
+
+        private List<string> parameterType;
+        public List<string> ParameterType
+        {
+            get { return parameterType; }
+        }
+        public string GetMethodParameterType(int index)
+        {
+            string returnValue = String.Empty;
+
+            if (index <= parameterType.Count)
+            {
+                returnValue = parameterType[index];
+            }
+
+            return returnValue;
+        }
+        // constructor
 		public ETSClassConfiguration(string className, string[] headerContents)
 		{
 			headerError = false;
@@ -79,14 +122,36 @@ namespace ETStoODMSIncremental
 			contentError = false;
             newUndefinedClass = false;
 
-			this.className = className;
+            if (className.ToLower().Contains("method"))
+            {
+                isMethod = true;
 
-			ValidateHeader(headerContents);
+                string[] nameSplit = className.Split(new char[] { ' ' });
+
+                if (nameSplit.Length != 2)
+                {
+                    contentError = true;
+                }
+                else
+                {
+                    this.className = nameSplit[1];
+                }
+
+                ValidateMethodHeader(headerContents);
+            }
+            else
+            {
+                this.className = className;
+
+                ValidateHeader(headerContents);
+            }
 
 			assignments = new List<Assignment>();
 			calculations = new List<Calculation>();
 			extensions = new List<Extension>();
 			logicExpressions = new List<Logic>();
+            parameters = new List<string>();
+            parameterType = new List<string>();
 		}
 
 		void ValidateHeader(string[] headerContents)
@@ -100,19 +165,30 @@ namespace ETStoODMSIncremental
 			}
 		}
 
-		bool HeaderError()
+        void ValidateMethodHeader(string[] headerContents)
+        {
+            if (!(headerContents[methodNameColumnIndex].Length > 0 &&
+                  headerContents[parameterColumnIndex] == parameter &&
+                  headerContents[parameterDescriptionColumnIndex] == parameterDescription))
+            {
+                headerError = true;
+            }
+        }
+
+        bool HeaderError()
 		{
 			return headerError;
 		}
 
 		public void ClassMapping(string[] secondRow)
 		{
-			if (secondRow[attributeColumnIndex] == "" &&
-				secondRow[operationColumnIndex] == operationKeywords[classMappingIndex] &&
+			if (secondRow[operationColumnIndex] == operationKeywords[classMappingIndex] &&
 				secondRow[destinationColumnIndex] != "")
 			{
 				classMappingName = secondRow[destinationColumnIndex];
-			}
+
+                inputOnly = secondRow[attributeColumnIndex] == "InputOnly";
+            }
 			else
 				mappingRowError = true;
 		}
@@ -150,15 +226,42 @@ namespace ETStoODMSIncremental
 			}
 			else if (operation.ToLower().Contains("if"))
 			{
-				logicExpressions.Add(new Logic(contentRow[attributeColumnIndex], contentRow[operationColumnIndex]));
+				logicExpressions.Add(new Logic(contentRow[attributeColumnIndex], contentRow[operationColumnIndex], contentRow[destinationColumnIndex]));
 			}
+            else if (operation == operationKeywords[createIndex])
+            {
+                classMappingName = contentRow[destinationColumnIndex];
+            }
 			else
 			{
 				contentError = true;
 			}
 		}
 
-		public List<string> GetListOfNeededAttributes()
+        public bool AddMethodParameter(string[] contentRow)
+        {
+            bool parameterFound = true;
+ 
+            if (!(contentRow[attributeColumnIndex] == attribute &&
+                  contentRow[operationColumnIndex] == operation &&
+                  contentRow[destinationColumnIndex] == destination))
+            {
+                string [] parameterSplit = contentRow[destinationColumnIndex].Split(new char[] { ' ' });
+
+                parameters.Add(parameterSplit[0]);
+                parameterType.Add(parameterSplit[1]);
+
+                parameterFound = true;
+            }
+            else
+            {
+                parameterFound = false;
+            }
+
+            return parameterFound;
+        }
+
+        public List<string> GetListOfNeededAttributes()
 		{
 			List<string> neededAttributes = new List<string>();
 
@@ -168,6 +271,9 @@ namespace ETStoODMSIncremental
 
 				if (!neededAttributes.Contains(attribute))
 				{
+                    //
+                    if (attribute[0] != ':')
+                        //
 					neededAttributes.Add(attribute);
 				}
 			}
@@ -200,6 +306,9 @@ namespace ETStoODMSIncremental
                 }
                 else
                 {
+                    //
+                    if (assignment.Attribute[0] != ':')
+                        //
                     dictionary.Add(assignment.Attribute, assignment.AttributeIsRDF);
                 }
             }
@@ -226,17 +335,25 @@ namespace ETStoODMSIncremental
 		static string destination = "Destination";
 		static string etsOnly = "ETS Only";
 
+        static string parameter = "Parameter";
+        static string parameterDescription = "ParameterDescription";
+
 		public static int attributeColumnIndex = 0;
 		public static int operationColumnIndex = 1;
 		public static int destinationColumnIndex = 2;
 		public static int etsOnlyColumnIndex = 3;
 
-		static string[] operationKeywords =
-			new string[] { "ClassMapping", "Assignment", "Calculation", "Extension" };
+        public static int methodNameColumnIndex = 0;
+        public static int parameterColumnIndex = 1;
+        public static int parameterDescriptionColumnIndex = 2;
+
+        static string[] operationKeywords =
+			new string[] { "ClassMapping", "Assignment", "Calculation", "Extension", "Create" };
 
 		static int classMappingIndex = 0;
 		static int assignmentIndex = 1;
 		static int calculationIndex = 2;
 		static int extensionIndex = 3;
+        static int createIndex = 4;
 	}
 }

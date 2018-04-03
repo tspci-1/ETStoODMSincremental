@@ -23,12 +23,17 @@ namespace ETStoODMSIncremental
 		string currentRDFid;
 
         XElement currentElement;
+        XElement methodElement;
+
+        List<XElement> methodElements;
 
 		public IncrementalFile(string incrementalFileName, XNamespace rdfNamespace)
 		{
 			rdfNS = rdfNamespace;
 
 			this.incrementalFileName = incrementalFileName;
+
+            methodElements = new List<XElement>();
 
 			Utils.WriteTimeToConsoleAndLog(String.Format("Initializing incremental file {0}.", incrementalFileName));
 
@@ -48,7 +53,6 @@ namespace ETStoODMSIncremental
 								new XAttribute(rdfNS + "parseType", "Statements")),
 							new XElement(dmNS + "forwardDifferences",
 								new XAttribute(rdfNS + "parseType", "Statements")))));
-
 		}
 
         public void NewClass(string className, string classMappingName)
@@ -72,58 +76,49 @@ namespace ETStoODMSIncremental
                             .Add(new XComment(commentText));
         }
 
-        public void NewInstance(string RDFid, bool newUndefinedClass)
+        public void NewIncrementalInstance(string RDFid, bool newUndefinedClass)
+        {
+            NewInstance(ref currentElement, RDFid, newUndefinedClass);
+        }
+        public void NewMethodInstance(string RDFid, bool newUndefinedClass, string newClassName)
+        {
+            NewInstance(ref methodElement, RDFid, newUndefinedClass, newClassName);
+        }
+        private void NewInstance(ref XElement element, string RDFid, bool newUndefinedClass, string newClassName = "")
 		{
 			currentRDFid = RDFid;
 
             if (!newUndefinedClass)
             {
-                currentElement = new XElement(rdfNS + "Description", new XAttribute(rdfNS + "about", RDFid.Insert(0, "#")));
+                element = new XElement(rdfNS + "Description", new XAttribute(rdfNS + "about", RDFid.Insert(0, "#")));
             }
             else
             {
-                currentElement = new XElement(cimNS + currentClassMappingName, new XAttribute(rdfNS + "ID", RDFid));
+                element = new XElement(cimNS + newClassName, new XAttribute(rdfNS + "ID", RDFid));
             }
-
-/*            incrementalDocument
-                .Element(rdfNS + "RDF")
-					.Element(dmNS + "DifferenceModel")
-						.Element(dmNS + "forwardDifferences")
-							.Add(currentElement); */
 		}
 
-		public void AddAttribute(string destination, string value, bool isRDF, bool newUndefinedClass)
+        public void AddIncrementalAttribute(string destination, string value, bool isRDF, bool newUndefinedClass)
+        {
+            AddAttribute(ref currentElement, destination, value, isRDF, newUndefinedClass);
+        }
+        public void AddMethodAttribute(string destination, string value, bool isRDF, bool newUndefinedClass)
+        {
+            AddAttribute(ref methodElement, destination, value, isRDF, newUndefinedClass);
+        }
+		private void AddAttribute(ref XElement element, string destination, string value, bool isRDF, bool newUndefinedClass)
 		{
-            /*            XName descendantsToFind;
-                        string rdfIDStringToFind;
+            if (value == null || value == string.Empty)
+            {
+                return;            // null value - no need to add this.
+            }
 
-                        if (!newUndefinedClass)
-                        {
-                            descendantsToFind = rdfNS + "Description";
-                            rdfIDStringToFind = currentRDFid.Insert(0, "#");
-                        }
-                        else
-                        {
-                            descendantsToFind = cimNS + currentClassMappingName;
-                            rdfIDStringToFind = currentRDFid;
-                        }
+            if (value.Contains("http:"))
+            {
+                isRDF = true;
+//                value = "rdf:resource=" + value;
+            }
 
-                        var ce =
-                            from theElement in incrementalDocument.Descendants(descendantsToFind)
-                            where theElement.FirstAttribute.Value.ToString() == rdfIDStringToFind
-                            select theElement;
-
-                        foreach (XElement el in ce)
-                        {
-                            if (isRDF)
-                            {
-                                el.Add(new XElement(cimNS + destination, new XAttribute(rdfNS + "resource", value.Insert(1, "#"))));
-                            }
-                            else
-                            {
-                                el.Add(new XElement(cimNS + destination, value));
-                            }
-                        } */
             XName currentXName;
             
             if (destination.Contains("AEP_"))
@@ -137,21 +132,50 @@ namespace ETStoODMSIncremental
 
             if (isRDF)
             {
-                currentElement.Add(new XElement(currentXName, new XAttribute(rdfNS + "resource", value)));
+                if (value[0] != '#' && !value.Contains("http:"))
+                {
+                    value = "#" + value;
+                }
+                element.Add(new XElement(currentXName, new XAttribute(rdfNS + "resource", value)));
             }
             else
             {
-                currentElement.Add(new XElement(currentXName, value));
+                element.Add(new XElement(currentXName, value));
             }
         }
 
         public void AddCurrentElement()
         {
+            AddElement(currentElement);
+        }
+        private void AddElement(XElement element)
+        {
             incrementalDocument
                 .Element(rdfNS + "RDF")
                     .Element(dmNS + "DifferenceModel")
                         .Element(dmNS + "forwardDifferences")
-                            .Add(currentElement);
+                            .Add(element);
+        }
+
+        private void InitializeMethodElements()
+        {
+            if (methodElements.Count > 0)
+                methodElements.Clear();
+        }
+
+        public void AddToMethodElements()
+        {
+            methodElements.Add(methodElement);
+        }
+
+        public void MethodComplete()
+        {
+            foreach (XElement element in methodElements)
+            {
+                AddElement(element);
+            }
+
+            InitializeMethodElements();
         }
 
         public void Save()

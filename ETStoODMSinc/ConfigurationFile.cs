@@ -52,6 +52,9 @@ namespace ETStoODMSIncremental
 			bool secondRow = false;
 			bool methodFound = false;
 
+            bool parameterRow = false;
+            bool methodSeparatorRow = false;
+
 			try
 			{
 				configurationFileApplication = new Application();
@@ -67,9 +70,6 @@ namespace ETStoODMSIncremental
 					if (worksheetName.Contains("Method"))
 					{
 						methodFound = true;
-						//
-						break;
-						//
 					}
 					else
 					{
@@ -108,13 +108,25 @@ namespace ETStoODMSIncremental
 							//                            etsClassConfigurations = new List<ETSClassConfiguration>();
 							etsClassConfigurations.Add(new ETSClassConfiguration(worksheetName, currentRowContents));
 							firstRow = false;
-							secondRow = true;
+
+                            if (methodFound)
+                            {
+                                parameterRow = true;
+                            }
+                            else
+                            {
+                                secondRow = true;
+                            }
 						}
 						else if (secondRow)
 						{
 							etsClassConfigurations[etsClassConfigurations.Count - 1].ClassMapping(currentRowContents);
 							secondRow = false;
 						}
+                        else if (parameterRow)
+                        {
+                            parameterRow = etsClassConfigurations[etsClassConfigurations.Count - 1].AddMethodParameter(currentRowContents);
+                        }
 						else
 						{
 							bool notAllNull = false;
@@ -166,6 +178,20 @@ namespace ETStoODMSIncremental
 
 			return attributeIsRDF;
 		}
-	}
+        public ETSClassConfiguration GetMethod(string methodName)
+        {
+            ETSClassConfiguration methodClass = etsClassConfigurations[0];
 
+            foreach (ETSClassConfiguration configuration in etsClassConfigurations)
+            {
+                if (configuration.ClassName == methodName)
+                {
+                    methodClass = configuration;
+                    break;
+                }
+            }
+
+            return methodClass;
+        }
+	}
 }
