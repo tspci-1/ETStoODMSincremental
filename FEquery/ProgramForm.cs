@@ -6,7 +6,7 @@ using System.Windows.Forms;
 
 namespace FEquery
 {
-    static class Program
+    static class ProgramForm
     {
         /// <summary>
         /// The main entry point for the application.
