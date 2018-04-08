@@ -20,11 +20,9 @@ namespace ETStoODMSIncremental
         public static Boolean m_ExExcelFile;  //Extensions Excel Workbook File
 
         public static string incrementalFilename;
- //       public static string ExtensionsOFilename;
- //       public static string excelFilename;
-//        public static string SQLOutputFilename;
-
+ 
         public static IncrementalFile iF;   //Incremental File
+        public static CalcEngine.CalcEngine calculationEngine;  //Calculation engine project
         public static ExtensionsOutput otF; //Extensions Text File
 
        [STAThread]
@@ -41,87 +39,29 @@ namespace ETStoODMSIncremental
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                //            Application.Run(new Form1());
             }
 
-  /*       //       frm.ShowDialog();  //Kick-off the Front End form
-                m_IncXmlFile =   IncXmlFile;  
-                m_CsqlFile = CsqlFile;
-                m_ExTextFile = ExTextFile;
-                m_ExExcelFile =ExExcelFile;
-                //                ConfigurationFilePath = frm.ConfigurationFilePath;
-                //                ETSFIlePath = frm.ETSFIlePath;
-                configurationFilename = ConfigurationFilePath;
-                alstomETSFilename = ETSFIlePath;
-            }
-         */   
-
-            //Testing out the form1 intro
- 
-//            string ConfigurationFilePath;
-//            string ETSFIlePath;
-
-            using (Form1 frm = new Form1())
+             using (Form1 frm = new Form1())
             {
                 frm.ShowDialog();  //Kick-off the Front End form
                 m_IncXmlFile = frm.IncXmlFile;
                 m_CsqlFile = frm.CsqlFile;
                 m_ExTextFile = frm.ExTextFile;
                 m_ExExcelFile = frm.ExExcelFile;
-                //                ConfigurationFilePath = frm.ConfigurationFilePath;
-                //                ETSFIlePath = frm.ETSFIlePath;
                 configurationFilename = frm.ConfigurationFilePath;
                 alstomETSFilename = frm.ETSFIlePath;
             }
            
-            //End of testing out the form1 usage
+			configurationPath = Path.GetDirectoryName(configurationFilename);  //Just want this line for testing form1 usage
 
-/*            OpenFileDialog configuration_ofd = new OpenFileDialog();
-
-			configuration_ofd.Title = "Select ETS to ODMS Incremental Configuration File";
-			configuration_ofd.Filter = "Excel File (*.xlsx)|*.xlsx";
-			configuration_ofd.Multiselect = false;
-
-			if (configuration_ofd.ShowDialog() == DialogResult.OK)
-			{
-				configurationFilename = configuration_ofd.FileName;
-	*/			configurationPath = Path.GetDirectoryName(configurationFilename);  //Just want this line for testing form1 usage
-/*			}
-			else
-			{
-				Console.WriteLine("Configuration file selection canceled. Exiting");
-				System.Threading.Thread.Sleep(5000);
-				return;
-			}
-
-			configuration_ofd.Dispose();
-*/
 			Utils.CreateLog(new StreamWriter
 							   (Path.Combine
 								   (configurationPath,
 									Path.GetFileNameWithoutExtension(configurationFilename)
 										 + DateTime.Now.ToString("_yyyyMMdd_HHmmss") + "_LOG.log")));
 
-/*			OpenFileDialog ets_ofd = new OpenFileDialog();
+			alstomETSPath = Path.GetDirectoryName(alstomETSFilename);  //Just want this line for testing form1 usage
 
-			ets_ofd.Title = "Select Alstom ETS file";
-			ets_ofd.Filter = "ETS File (*.ets)|*.ets";
-			ets_ofd.Multiselect = false;
-
-			if (ets_ofd.ShowDialog() == DialogResult.OK)
-			{
-				alstomETSFilename = ets_ofd.FileName;
-	*/			alstomETSPath = Path.GetDirectoryName(alstomETSFilename);  //Just want this line for testing form1 usage
-/*			}
-			else
-			{
-				Console.WriteLine("Alstom ETS file selection canceled. Exiting");
-				System.Threading.Thread.Sleep(5000);
-				return;
-			}
-
-			ets_ofd.Dispose();
-*/
             Utils.WriteTimeToConsoleAndLog("ETStoODMSIncremental invoked with configuration file " + configurationFilename);
             Utils.WriteTimeToConsoleAndLog(" and ETS file " + alstomETSFilename);
 
@@ -143,12 +83,14 @@ namespace ETStoODMSIncremental
                                                      + "_incremental_" + DateTime.Now.ToString("_yyyyMMdd_HHmmss") + ".xml");
 
                 iF = new IncrementalFile(incrementalFilename, etsFile.GetNamespaceDefinition("rdf"));
+                calculationEngine = new CalcEngine.CalcEngine();
+
             }
 
             if (m_ExTextFile)
-            {
-                //Create the Extension output filename
-                 string ExtensionsOFilename = Path.Combine
+            {                //Create the Extension output filename
+
+                string ExtensionsOFilename = Path.Combine
                                                 (Path.GetDirectoryName(alstomETSFilename),
                                                  "ExtensionsOutputFile-"
                                                      + DateTime.Now.ToString("_yyyyMMdd_HHmmss") + ".txt");
@@ -171,11 +113,6 @@ namespace ETStoODMSIncremental
                                                 "Customer.sql");
                 SQLOutput SQLOF1 = new SQLOutput(SQLOutputFilename);  //Create the sql output file used for ODMS
             }
-
-//            ExtensionsOutput oF = new ExtensionsOutput(ExtensionsOFilename, excelFilename);  //create the Extensions output files
- //           SQLOutput SQLOF1 = new SQLOutput(SQLOutputFilename);  //Create the sql output file used for ODMS
-
-            CalcEngine.CalcEngine calculationEngine = new CalcEngine.CalcEngine();
 
 
             foreach (ETSClassConfiguration classConfiguration in configurationFile.ETSClassConfigurations)
@@ -202,13 +139,11 @@ namespace ETStoODMSIncremental
 
                 Utils.WriteTimeToConsoleAndLog(String.Format("Adding instances to incremental file for {0}", className));
 
-                //           ExtensionsOutput.LoadDictionary(classConfiguration, classMappingName, excelFilename); // Create entries in the output files and load the summary dictionary
                 if (m_CsqlFile || m_ExExcelFile || m_ExTextFile)
                 {
                     ExtensionsOutput.LoadDictionary(classConfiguration, classMappingName); // Create entries in the output files and load the summary dictionary
                 }
 
-                // Put the incremental if statement here ==> We only wan to do the extensions part of the foreach loop above if there's no incremental file wanted
                 if (m_IncXmlFile)
                 {
                     foreach (Assignment assignment in classConfiguration.Assignments)
@@ -480,8 +415,6 @@ namespace ETStoODMSIncremental
                     iF.MethodComplete();
 
                     Utils.WriteTimeToConsoleAndLog(String.Format("Processed {0} instances of class {1}.", instanceCount, className));
-
-                    //Put the end of the incremental if statement here
                 }
             }
 
@@ -544,13 +477,11 @@ namespace ETStoODMSIncremental
         }
 		public static void WriteTimeToConsole()
 		{
-			//MessageBox.Show("{0:T}", DateTime.Now.ToString());
             Console.WriteLine("{0:T}", DateTime.Now);
         }
 
 		public static void WriteTimeToConsole(string message)
 		{
-            //MessageBox.Show("{0:T}:"+message, DateTime.Now.ToString());
             Console.WriteLine("{0:T}:{1}", DateTime.Now, message);
         }
 
