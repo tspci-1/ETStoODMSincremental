@@ -526,13 +526,15 @@ namespace ETStoODMSIncremental
         }
 		public static void WriteTimeToConsole()
 		{
-			Console.WriteLine("{0:T}", DateTime.Now);
-		}
+			//MessageBox.Show("{0:T}", DateTime.Now.ToString());
+            Console.WriteLine("{0:T}", DateTime.Now);
+        }
 
 		public static void WriteTimeToConsole(string message)
 		{
-			Console.WriteLine("{0:T}:{1}", DateTime.Now, message);
-		}
+            //MessageBox.Show("{0:T}:"+message, DateTime.Now.ToString());
+            Console.WriteLine("{0:T}:{1}", DateTime.Now, message);
+        }
 
 		public static void WriteTimeToConsoleAndLog(string message)
 		{
