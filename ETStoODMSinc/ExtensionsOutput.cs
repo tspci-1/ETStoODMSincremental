@@ -8,8 +8,8 @@ namespace ETStoODMSIncremental
 {
     class ExtensionsOutput
     {
-        string extensionsOFilename;
-        string excelFilename;
+        public static string extensionsOFilename; //Output Text File
+        public static string excelFilename; //Output Excel File
 
         public static Boolean CName = true;
         public static Boolean FSheet = true;
@@ -21,7 +21,7 @@ namespace ETStoODMSIncremental
 
         public static StreamWriter EOF = null;
         public static Excel.Application excel_app = new Excel.Application();
-        public static SortedDictionary<string, string> defAndDetails = new SortedDictionary<string, string>();
+        public static SortedDictionary<string, string> defAndDetails = new SortedDictionary<string, string>(); //Using this makes the text file summary section of all attributes easier for a human to read through
 
         public static string scomp1 = "newKind";
         public static string scomp2 = "NewClass";
@@ -31,72 +31,111 @@ namespace ETStoODMSIncremental
         public static Excel.Workbook workbook = null;
         public static Excel.Worksheet excelFirstSheet;
 
-        public ExtensionsOutput(string extensionsOFilename, string excelFilename)
+        //        public ExtensionsOutput(string extensionsOFilename, string excelFilename)
+        public ExtensionsOutput(string FileName, string FileType)
         {
-            this.extensionsOFilename = extensionsOFilename;
-            this.excelFilename = excelFilename;
+            switch (FileType)
+            {
+                case "TEXT":
+                    { extensionsOFilename = FileName;
+                        EOF = new StreamWriter(extensionsOFilename);
+                        EOF.WriteLine("NameSpace:  <http://iec.ch/TC57/2013/CIM-schema-cim16#>");
+                        break; }
+                case "EXCEL":
+                    { excelFilename = FileName;
+                        workbook = excel_app.Workbooks.Add(Type.Missing);
+                        excelFirstSheet = workbook.Worksheets[1];
+                        workbook.SaveAs(excelFilename);
+                        break; }
+                default:
+                    {
+                        Utils.WriteTimeToConsoleAndLog("Invalid type of file passed to ExtensionsOutput module.  FileType: " + FileType);
+                        //Need to think about how to politely terminate program if this ever happened.  Nothing in place for it, yet.
+                        break;
+                    }
+            }
+          
+ //           this.extensionsOFilename = extensionsOFilename;
+ //           this.excelFilename = excelFilename;
 
-            EOF = new StreamWriter(extensionsOFilename);
-            EOF.WriteLine("NameSpace:  <http://iec.ch/TC57/2013/CIM-schema-cim16#>");
+//            EOF = new StreamWriter(extensionsOFilename);
+//            EOF.WriteLine("NameSpace:  <http://iec.ch/TC57/2013/CIM-schema-cim16#>");
 
             //Create the workbook
-            workbook = excel_app.Workbooks.Add(Type.Missing);
-            excelFirstSheet = workbook.Worksheets[1];
-            workbook.SaveAs(excelFilename);
+//            workbook = excel_app.Workbooks.Add(Type.Missing);
+ //           excelFirstSheet = workbook.Worksheets[1];
+ //           workbook.SaveAs(excelFilename);
 
         }
 
-        public static void LoadDictionary(ETSClassConfiguration classConfiguration, string classMappingName, string excelFilename)
-        {
+        //        public static void LoadDictionary(ETSClassConfiguration classConfiguration, string classMappingName, string excelFilename)
+        public static void LoadDictionary(ETSClassConfiguration classConfiguration, string classMappingName)
+                {
 
-            workbook = excel_app.Workbooks.Open(
-             excelFilename,
-             Type.Missing, Type.Missing, Type.Missing, Type.Missing,
-             Type.Missing, Type.Missing, Type.Missing, Type.Missing,
-             Type.Missing, Type.Missing, Type.Missing, Type.Missing,
-             Type.Missing, Type.Missing);
+            string interimClassName = ""; //Used for adjusting the tab name when necessary.  See special cases comment for config file
+            interimClassName = classMappingName;
 
-            if (!FSheet) //Actually start on the very first worksheet that is created by default when workbook is created
+            if (Program.m_ExExcelFile)
             {
-                sheet = (Excel.Worksheet)workbook.Sheets.Add(
-               Type.Missing, workbook.Sheets[workbook.Sheets.Count],
-               1, Excel.XlSheetType.xlWorksheet);
-            }
-            else
-            {
-                sheet = excelFirstSheet;
-                FSheet = false;
-            }
+                workbook = excel_app.Workbooks.Open(
+                 excelFilename,
+                 Type.Missing, Type.Missing, Type.Missing, Type.Missing,
+                 Type.Missing, Type.Missing, Type.Missing, Type.Missing,
+                 Type.Missing, Type.Missing, Type.Missing, Type.Missing,
+                 Type.Missing, Type.Missing);
 
-            sheet.Name = classMappingName;
+                if (!FSheet) //Actually start on the very first worksheet that is created by default when workbook is created
+                {
+                    sheet = (Excel.Worksheet)workbook.Sheets.Add(
+                   Type.Missing, workbook.Sheets[workbook.Sheets.Count],
+                   1, Excel.XlSheetType.xlWorksheet);
+                }
+                else
+                {
+                    sheet = excelFirstSheet;
+                    FSheet = false;
+                }
+            }
+ //           interimClassName = classMappingName;
 
+            //The following deal with special cases from the config file
             if (CName && classMappingName.Equals("GeneratingUnit"))
-            {
-                sheet.Name = "SynchronousMachine";  //This is to handle that SynchMach/GeneratingUnit situation in the Workbook, since we're using the classmapping name
+            {   //  Assumes SynchMach tab is first in the workbook and then GenUnit, even though the tab is named genunit for both.
+                // This is to handle that SynchMach/GeneratingUnit situation in the Workbook, since we're using the classmapping name.  
+                // Assumes SynchMach is first in the workbook!!!!!!
+                interimClassName = "SynchronousMachine";  
                 CName = false;
             }
 
             if (classMappingName.Equals("AEP_CBType"))
             {
-                sheet.Name = "CBType";
+                interimClassName = "CBType";
             }
 
             if (classMappingName.Equals("AEP_LoadType"))
             {
-                sheet.Name = "LoadType";
+                interimClassName = "LoadType";
             }
 
             if (classMappingName.Equals("ConformLoad"))
             {
-                sheet.Name = "EquipmentLoad";
+                interimClassName = "EquipmentLoad";
             }
 
-            EOF.WriteLine("Class Mapping Name: " + sheet.Name);  //Flag the Class
+            if (Program.m_ExExcelFile)
+            {
+                sheet.Name = interimClassName;
+            }
+
+            if (Program.m_ExTextFile)
+            {
+                EOF.WriteLine("Class Mapping Name: " + interimClassName);  //Flag the Class
+            }
 
             foreach (Extension extension in classConfiguration.Extensions)
             {
 
-                if (className.Equals(classMappingName))
+                if (className.Equals(classMappingName))  //Determine when we've changed classes aka tabs in the worksheet
                 {
                     classNameChange = false;
                 }
@@ -109,15 +148,15 @@ namespace ETStoODMSIncremental
 
                 try
                 {
-                    defAndDetails.Add(extension.Definition, extension.Details);
+                    defAndDetails.Add(extension.Definition, extension.Details); //Filter out duplicates
                 }
                 catch (ArgumentException)
                 {
-                    Console.WriteLine("Duplicate Extension Found: " + extension.Definition);
+                    Utils.WriteTimeToConsoleAndLog("Duplicate Extension Found: " + extension.Definition);
                 }
 
-                Console.WriteLine();
-                Console.WriteLine("Class Mapping Name: " + sheet.Name);
+                Utils.WriteTimeToConsoleAndLog("");
+                Utils.WriteTimeToConsoleAndLog("Class Mapping Name: " + interimClassName);
 
                 //Strip out any multiple spaces from the attribute
                 string cString = CollapseSpaces.CSpaces(extension.Definition);
@@ -132,44 +171,86 @@ namespace ETStoODMSIncremental
                     dataType = elemnt[1];
                 }
 
-                sheet.Rows[row].Cells[col].Value = elemnt[0].ToString();
-                if (dataType.Equals("association"))
+                if (Program.m_ExExcelFile)
+                {
+                    sheet.Rows[row].Cells[col].Value = elemnt[0].ToString();
+                }
+
+                if (dataType.Equals("association"))  //Just some adjusting to alter how both extension output files display the association entries
                     {
                     if (extension.Details.Length < 13 )
                     {
-                        EOF.Write("    " + elemnt[0] + "    dataType: " + dataType);
-                        sheet.Rows[row].Cells[col + 1].Value = dataType.ToString();
+                        if (Program.m_ExTextFile)
+                        {
+                            EOF.Write("    " + elemnt[0] + "    dataType: " + dataType);
+                        }
+
+                        if (Program.m_ExExcelFile)
+                        {
+                            sheet.Rows[row].Cells[col + 1].Value = dataType.ToString();
+                        }
+
                     }else
                     {
-                        EOF.Write("    " + elemnt[0] + "    ");
+                        if (Program.m_ExTextFile)
+                        {
+                            EOF.Write("    " + elemnt[0] + "    ");
+                        }
                     }
                 }
                 else
                 {
-                    EOF.Write("    " + elemnt[0] + "    dataType: " + dataType);
-                    sheet.Rows[row].Cells[col + 1].Value = dataType.ToString();
+                    if (Program.m_ExTextFile)
+                    {
+                        EOF.Write("    " + elemnt[0] + "    dataType: " + dataType);
+                    }
+
+                    if (Program.m_ExExcelFile)
+                    {
+                        sheet.Rows[row].Cells[col + 1].Value = dataType.ToString();
+                    }
                 }
 
-            sheet.Rows[row].Cells[col + 2].Value = extension.Details.ToString();
+                if (Program.m_ExExcelFile)
+                {
+                    sheet.Rows[row].Cells[col + 2].Value = extension.Details.ToString();
+                }
 
-                SQLOutput.BuildOutTable(elemnt[0].ToString(), dataType.ToString(), extension.Details.ToString(), classNameChange, classMappingName);
+                //Toss the current object and info to the SQL output file builder
+                if (Program.m_CsqlFile)
+                {
+                    SQLOutput.BuildOutTable(elemnt[0].ToString(), dataType.ToString(), extension.Details.ToString(), classNameChange, classMappingName);
+                }
 
-                row++;
+                if (Program.m_ExExcelFile)
+                {
+                    row++;
+                }
 
-                EOF.WriteLine("    " + extension.Details);                       //Spit out as-is for right now
+                if (Program.m_ExTextFile)
+                {
+                    EOF.WriteLine("    " + extension.Details);                       //Spit out as-is for right now
 
-                EOF.WriteLine(); //Line spacer
+                    EOF.WriteLine(); //Line spacer
+                }
 
-                Console.WriteLine(" Extension: " + extension.Definition);
-                Console.WriteLine(" Details: " + extension.Details);
+                Utils.WriteTimeToConsoleAndLog(" Extension: " + extension.Definition);
+                Utils.WriteTimeToConsoleAndLog(" Details: " + extension.Details);
             }
 
-            EOF.WriteLine("\n\n");  //Spacer lines
-            row = 1;
-            workbook.Close(true, Type.Missing, Type.Missing);
+            if (Program.m_ExTextFile)
+            {
+                EOF.WriteLine("\n\n");  //Spacer lines
+            }
+
+            if (Program.m_ExExcelFile)
+            {
+                row = 1;
+                workbook.Close(true, Type.Missing, Type.Missing);  //Wrap up the excel workbook
+            }
         }       
 
-        public static void DumpSummary()
+        public static void DumpSummary() //Finish out the extensions text file
         {
             EOF.WriteLine(" \n\n\nSummary Output");
 

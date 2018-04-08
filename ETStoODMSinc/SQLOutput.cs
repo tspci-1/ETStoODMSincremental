@@ -97,14 +97,14 @@ namespace ETStoODMSIncremental
                 return;
             }
 
-            if (attribute.Equals("Substation.region"))
+            if (attribute.Equals("Substation.region")) //This is already in the CIM Substation.Region
             {
                 return;
             }
 
 
             if (classNameChange)
-            {
+            { // Depends on whether table is in cim namespace or pti namespace
                 if (!inheritsFrom.Equals("") && !attribute.Contains("."))
                 { //This is when we are creating a table
 
@@ -148,7 +148,7 @@ namespace ETStoODMSIncremental
                 }
             }
 
-            switch (dataType)
+            switch (dataType) //Convert dataType from CIM to SQL Server
             {
                 case "ActivePower": { dataType = "float"; break; }
                 case "Boolean": { dataType = "bit"; break; }
@@ -165,7 +165,7 @@ namespace ETStoODMSIncremental
 
             g = Guid.NewGuid();
             if (!createTableNameFlag)
-            {
+            { //Also deals with two common duplicates as well as whether its a new 'AEP_ ' extension or already in CIM
                 if (className.Equals("AlarmableObject"))
                 {
                     SQLOF.WriteLine(addProp2, g.ToString(), className, attribute, subattribute, dataType);

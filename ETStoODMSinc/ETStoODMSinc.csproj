@@ -94,6 +94,10 @@
       <Project>{EE53DAD4-D6C8-4C47-9AD4-5B3BA2900DC2}</Project>
       <Name>CalcEngine</Name>
     </ProjectReference>
+    <ProjectReference Include="..\FEquery\FEquery.csproj">
+      <Project>{4d801792-7872-4f52-8991-98543adfe9b9}</Project>
+      <Name>FEquery</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
