@@ -34,6 +34,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -51,6 +52,12 @@
     <Compile Include="ETSSubsetContents.cs" />
     <Compile Include="Extension.cs" />
     <Compile Include="ExtensionsOutput.cs" />
+    <Compile Include="Form1.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Form1.Designer.cs">
+      <DependentUpon>Form1.cs</DependentUpon>
+    </Compile>
     <Compile Include="IncrementalFile.cs" />
     <Compile Include="Logic.cs" />
     <Compile Include="Program.cs" />
@@ -94,10 +101,11 @@
       <Project>{EE53DAD4-D6C8-4C47-9AD4-5B3BA2900DC2}</Project>
       <Name>CalcEngine</Name>
     </ProjectReference>
-    <ProjectReference Include="..\FEquery\FEquery.csproj">
-      <Project>{4d801792-7872-4f52-8991-98543adfe9b9}</Project>
-      <Name>FEquery</Name>
-    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Form1.resx">
+      <DependentUpon>Form1.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

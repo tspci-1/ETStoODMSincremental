@@ -4,13 +4,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 15.0.27428.2015
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ETStoODMSinc", "ETStoODMSinc\ETStoODMSinc.csproj", "{E2650B2B-2EEA-44D2-B281-4F92FCB39AFF}"
-	ProjectSection(ProjectDependencies) = postProject
-		{4D801792-7872-4F52-8991-98543ADFE9B9} = {4D801792-7872-4F52-8991-98543ADFE9B9}
-	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CalcEngine", "CalcEngine\CalcEngine.csproj", "{EE53DAD4-D6C8-4C47-9AD4-5B3BA2900DC2}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FEquery", "FEquery\FEquery.csproj", "{4D801792-7872-4F52-8991-98543ADFE9B9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,10 +19,6 @@ Global
 		{E2650B2B-2EEA-44D2-B281-4F92FCB39AFF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{EE53DAD4-D6C8-4C47-9AD4-5B3BA2900DC2}.Debug|Any CPU.ActiveCfg = Debug|x86
 		{EE53DAD4-D6C8-4C47-9AD4-5B3BA2900DC2}.Release|Any CPU.ActiveCfg = Release|x86
-		{4D801792-7872-4F52-8991-98543ADFE9B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4D801792-7872-4F52-8991-98543ADFE9B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4D801792-7872-4F52-8991-98543ADFE9B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4D801792-7872-4F52-8991-98543ADFE9B9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

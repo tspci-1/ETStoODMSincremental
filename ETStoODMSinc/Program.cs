@@ -30,20 +30,38 @@ namespace ETStoODMSIncremental
        [STAThread]
         static void Main(string[] args)
 		{
-      
-        ConfigurationFile configurationFile;
 
-			string configurationFilename;
-			string configurationPath;
-			string alstomETSFilename;
-			string alstomETSPath;
+            ConfigurationFile configurationFile;
+
+            string configurationFilename;
+            string configurationPath;
+            string alstomETSFilename;
+            string alstomETSPath;
+
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                //            Application.Run(new Form1());
+            }
+
+  /*       //       frm.ShowDialog();  //Kick-off the Front End form
+                m_IncXmlFile =   IncXmlFile;  
+                m_CsqlFile = CsqlFile;
+                m_ExTextFile = ExTextFile;
+                m_ExExcelFile =ExExcelFile;
+                //                ConfigurationFilePath = frm.ConfigurationFilePath;
+                //                ETSFIlePath = frm.ETSFIlePath;
+                configurationFilename = ConfigurationFilePath;
+                alstomETSFilename = ETSFIlePath;
+            }
+         */   
 
             //Testing out the form1 intro
  
 //            string ConfigurationFilePath;
 //            string ETSFIlePath;
 
-            using (FEquery.Form1 frm = new FEquery.Form1())
+            using (Form1 frm = new Form1())
             {
                 frm.ShowDialog();  //Kick-off the Front End form
                 m_IncXmlFile = frm.IncXmlFile;
@@ -55,7 +73,7 @@ namespace ETStoODMSIncremental
                 configurationFilename = frm.ConfigurationFilePath;
                 alstomETSFilename = frm.ETSFIlePath;
             }
-            
+           
             //End of testing out the form1 usage
 
 /*            OpenFileDialog configuration_ofd = new OpenFileDialog();
