@@ -1,4 +1,18 @@
-﻿using System;
+﻿/*
+ 
+Copyright© 2018 Project Consultants, LLC
+ 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ 
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.”
+ 
+*/
+
+using System;
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
@@ -11,7 +25,6 @@ namespace ETStoODMSIncremental
         public static string extensionsOFilename; //Output Text File
         public static string excelFilename; //Output Excel File
 
-        public static Boolean CName = true;
         public static Boolean FSheet = true;
         public static Boolean classNameChange = false;
         public static string className = "";
@@ -20,9 +33,13 @@ namespace ETStoODMSIncremental
         public static int col = 1;
 
         public static StreamWriter EOF = null;
-        public static Excel.Application excel_app = new Excel.Application();
+        public static Excel.Application excel_app = new Excel.Application(); //Here is where the new Excel object instance gets created
         public static SortedDictionary<string, string> defAndDetails = new SortedDictionary<string, string>(); //Using this makes the text file summary section of all attributes easier for a human to read through
 
+        /* newKind/NewClass are for furture use
+         * See David M.'s config file rules document
+         * 
+         * */
         public static string scomp1 = "newKind";
         public static string scomp2 = "NewClass";
         public static string dataType;
@@ -31,22 +48,29 @@ namespace ETStoODMSIncremental
         public static Excel.Workbook workbook = null;
         public static Excel.Worksheet excelFirstSheet;
 
-        //        public ExtensionsOutput(string extensionsOFilename, string excelFilename)
+        /*Constructor for both file types
+         * 
+         * */
+
         public ExtensionsOutput(string FileName, string FileType)
         {
             switch (FileType)
             {
                 case "TEXT":
-                    { extensionsOFilename = FileName;
+                    {
+                        extensionsOFilename = FileName;
                         EOF = new StreamWriter(extensionsOFilename);
                         EOF.WriteLine("NameSpace:  <http://iec.ch/TC57/2013/CIM-schema-cim16#>");
-                        break; }
+                        break;
+                    }
                 case "EXCEL":
-                    { excelFilename = FileName;
+                    {
+                        excelFilename = FileName;
                         workbook = excel_app.Workbooks.Add(Type.Missing);
                         excelFirstSheet = workbook.Worksheets[1];
                         workbook.SaveAs(excelFilename);
-                        break; }
+                        break;
+                    }
                 default:
                     {
                         Utils.WriteTimeToConsoleAndLog("Invalid type of file passed to ExtensionsOutput module.  FileType: " + FileType);
@@ -54,23 +78,14 @@ namespace ETStoODMSIncremental
                         break;
                     }
             }
-          
- //           this.extensionsOFilename = extensionsOFilename;
- //           this.excelFilename = excelFilename;
-
-//            EOF = new StreamWriter(extensionsOFilename);
-//            EOF.WriteLine("NameSpace:  <http://iec.ch/TC57/2013/CIM-schema-cim16#>");
-
-            //Create the workbook
-//            workbook = excel_app.Workbooks.Add(Type.Missing);
- //           excelFirstSheet = workbook.Worksheets[1];
- //           workbook.SaveAs(excelFilename);
-
         }
 
-        //        public static void LoadDictionary(ETSClassConfiguration classConfiguration, string classMappingName, string excelFilename)
+        /* Main Workhorse loop
+         * 
+         * */
+
         public static void LoadDictionary(ETSClassConfiguration classConfiguration, string classMappingName)
-                {
+        {
 
             string interimClassName = ""; //Used for adjusting the tab name when necessary.  See special cases comment for config file
             interimClassName = classMappingName;
@@ -96,16 +111,12 @@ namespace ETStoODMSIncremental
                     FSheet = false;
                 }
             }
- //           interimClassName = classMappingName;
 
-            //The following deal with special cases from the config file
-            if (CName && classMappingName.Equals("GeneratingUnit"))
-            {   //  Assumes SynchMach tab is first in the workbook and then GenUnit, even though the tab is named genunit for both.
-                // This is to handle that SynchMach/GeneratingUnit situation in the Workbook, since we're using the classmapping name.  
-                // Assumes SynchMach is first in the workbook!!!!!!
-                interimClassName = "SynchronousMachine";  
-                CName = false;
-            }
+            /* Two special cases
+             * The worksheet needed to have the AEP_ stipped off
+             * This was the quick way to do it
+             * 
+             * */
 
             if (classMappingName.Equals("AEP_CBType"))
             {
@@ -116,6 +127,11 @@ namespace ETStoODMSIncremental
             {
                 interimClassName = "LoadType";
             }
+
+            /* Special case
+             * May need to be removed at some point
+             * 
+             * */
 
             if (classMappingName.Equals("ConformLoad"))
             {
@@ -132,6 +148,11 @@ namespace ETStoODMSIncremental
                 EOF.WriteLine("Class Mapping Name: " + interimClassName);  //Flag the Class
             }
 
+
+            /* Peel them out of the object we were passed
+             * 
+             * */
+
             foreach (Extension extension in classConfiguration.Extensions)
             {
 
@@ -145,7 +166,9 @@ namespace ETStoODMSIncremental
                     className = classMappingName;
                 }
 
-
+                /* This just filters per tab/class, not for the entire config file 
+                 * 
+                 * */
                 try
                 {
                     defAndDetails.Add(extension.Definition, extension.Details); //Filter out duplicates
@@ -177,8 +200,8 @@ namespace ETStoODMSIncremental
                 }
 
                 if (dataType.Equals("association"))  //Just some adjusting to alter how both extension output files display the association entries
-                    {
-                    if (extension.Details.Length < 13 )
+                {
+                    if (extension.Details.Length < 13)
                     {
                         if (Program.m_ExTextFile)
                         {
@@ -190,7 +213,8 @@ namespace ETStoODMSIncremental
                             sheet.Rows[row].Cells[col + 1].Value = dataType.ToString();
                         }
 
-                    }else
+                    }
+                    else
                     {
                         if (Program.m_ExTextFile)
                         {
@@ -216,7 +240,10 @@ namespace ETStoODMSIncremental
                     sheet.Rows[row].Cells[col + 2].Value = extension.Details.ToString();
                 }
 
-                //Toss the current object and info to the SQL output file builder
+                /*Toss the current object and info to the SQL output file builder
+                 * 
+                 * */
+
                 if (Program.m_CsqlFile)
                 {
                     SQLOutput.BuildOutTable(elemnt[0].ToString(), dataType.ToString(), extension.Details.ToString(), classNameChange, classMappingName);
@@ -245,12 +272,24 @@ namespace ETStoODMSIncremental
 
             if (Program.m_ExExcelFile)
             {
-                row = 1;
-                workbook.Close(true, Type.Missing, Type.Missing);  //Wrap up the excel workbook
+                row = 1; //reset for the next tab in the output workbook
             }
-        }       
+        }
 
-        public static void DumpSummary() //Finish out the extensions text file
+        /* Method to close the Excel workbook
+            * 
+            * */
+
+        public static void CloseWorkbook()
+        {
+            workbook.Close(true, Type.Missing, Type.Missing);  //Wrap up the excel workbook
+        }
+
+        /* Method the writeout the summary list and close the text file
+         * 
+         * */
+
+        public static void DumpSummary()
         {
             EOF.WriteLine(" \n\n\nSummary Output");
 
@@ -262,6 +301,10 @@ namespace ETStoODMSIncremental
             EOF.Close(); //Close the extensions listing file
         }
     }
+
+    /* Utility to squeegee out the extra spaces
+     * 
+     * */
 
     public static class CollapseSpaces
     {

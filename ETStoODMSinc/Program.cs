@@ -1,4 +1,20 @@
-﻿using System;
+﻿/*
+ 
+Copyright© 2018 Project Consultants, LLC
+ 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ 
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.”
+ 
+*/
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,12 +36,14 @@ namespace ETStoODMSIncremental
         public static Boolean m_ExExcelFile;  //Extensions Excel Workbook File
 
         public static string incrementalFilename;
- 
+        public static string incrementalReferenceFilename;
+
         public static IncrementalFile iF;   //Incremental File
+        public static IncrementalReferenceFile irf; //Incremental Reference File
         public static CalcEngine.CalcEngine calculationEngine;  //Calculation engine project
         public static ExtensionsOutput otF; //Extensions Text File
 
-       [STAThread]
+        [STAThread]
         static void Main(string[] args)
 		{
 
@@ -41,7 +59,7 @@ namespace ETStoODMSIncremental
                 Application.SetCompatibleTextRenderingDefault(false);
             }
 
-             using (Form1 frm = new Form1())
+            using (Form1 frm = new Form1())
             {
                 frm.ShowDialog();  //Kick-off the Front End form
                 m_IncXmlFile = frm.IncXmlFile;
@@ -77,14 +95,23 @@ namespace ETStoODMSIncremental
 
             if (m_IncXmlFile)
             {
-                 incrementalFilename = Path.Combine
-                                                (Path.GetDirectoryName(alstomETSFilename),
-                                                 Path.GetFileNameWithoutExtension(alstomETSFilename)
-                                                     + "_incremental_" + DateTime.Now.ToString("_yyyyMMdd_HHmmss") + ".xml");
+                XNamespace rdfNS = etsFile.GetNamespaceDefinition("rdf");
 
-                iF = new IncrementalFile(incrementalFilename, etsFile.GetNamespaceDefinition("rdf"));
+                string etsDirectory = Path.GetDirectoryName(alstomETSFilename);
+
+                incrementalFilename = 
+                    Path.Combine (etsDirectory,
+                                    Path.GetFileNameWithoutExtension(alstomETSFilename)
+                                        + "_incremental_" + DateTime.Now.ToString("_yyyyMMdd_HHmmss") + ".xml");
+
+                iF = new IncrementalFile(incrementalFilename, rdfNS);
+
+                incrementalReferenceFilename =
+                    Path.Combine(etsDirectory, "incrementalReference" + ".xml");
+
+                irf = new IncrementalReferenceFile(incrementalReferenceFilename, rdfNS);
+
                 calculationEngine = new CalcEngine.CalcEngine();
-
             }
 
             if (m_ExTextFile)
@@ -92,7 +119,7 @@ namespace ETStoODMSIncremental
 
                 string ExtensionsOFilename = Path.Combine
                                                 (Path.GetDirectoryName(alstomETSFilename),
-                                                 "ExtensionsOutputFile-"
+                                                 "ExtensionsOutputText-"
                                                      + DateTime.Now.ToString("_yyyyMMdd_HHmmss") + ".txt");
                 otF = new ExtensionsOutput(ExtensionsOFilename, "TEXT");  //create the Extensions text file
             }
@@ -101,7 +128,7 @@ namespace ETStoODMSIncremental
             { //Create the Extension Excel output filename
                 string excelFilename = Path.Combine
                                                (Path.GetDirectoryName(alstomETSFilename),
-                                                "ExtensionsOutput- "
+                                                "ExtensionsOutputExcel- "
                                                  + DateTime.Now.ToString("_yyyyMMdd_HHmmss") + ".xlsx");
                 ExtensionsOutput oeF = new ExtensionsOutput(excelFilename, "EXCEL");  //create the Extensions Excel file
             }
@@ -114,6 +141,25 @@ namespace ETStoODMSIncremental
                 SQLOutput SQLOF1 = new SQLOutput(SQLOutputFilename);  //Create the sql output file used for ODMS
             }
 
+            int instanceCount = 0;
+
+            List<string> busbarList = new List<string>();
+            bool busbarListLoaded = false;
+
+            List<string> transformerWindingList = new List<string>();
+            bool transformerWindingListLoaded = false;
+
+            Dictionary<string, Dictionary<string, string>> terminalContents = 
+                                          new Dictionary<string, Dictionary<string, string>>();
+            bool terminalContentsLoaded = false;
+
+            Dictionary<string, Dictionary<string, string>> transformerWindingContents =
+                                          new Dictionary<string, Dictionary<string, string>>();
+            bool transformerWindingContentsLoaded = false;
+
+            Dictionary<string, Dictionary<string, string>> intervalSchedTimePointContents = 
+                                          new Dictionary<string, Dictionary<string, string>>();
+            bool intervalSchedTimePointContentsLoaded = false;
 
             foreach (ETSClassConfiguration classConfiguration in configurationFile.ETSClassConfigurations)
 			{
@@ -129,6 +175,8 @@ namespace ETStoODMSIncremental
                 if (m_IncXmlFile)
                 {
                     iF.NewClass(className, classMappingName);
+
+                    instanceCount = 0;
                 }
 
 				Dictionary<string, string> attributeAndDestination = new Dictionary<string, string>();
@@ -137,7 +185,8 @@ namespace ETStoODMSIncremental
                 Dictionary<string, string> destinationAndConstant = new Dictionary<string, string>();
                 Dictionary<string, bool> destinationAndIsRDF = new Dictionary<string, bool>();
 
-                Utils.WriteTimeToConsoleAndLog(String.Format("Adding instances to incremental file for {0}", className));
+                Utils.WriteTimeToConsoleAndLog(String.Format("Adding instance attribute additions/updates" +
+                    " to incremental file for {0}", className));
 
                 if (m_CsqlFile || m_ExExcelFile || m_ExTextFile)
                 {
@@ -166,13 +215,13 @@ namespace ETStoODMSIncremental
                         }
                     }
 
-                    int instanceCount = 0;
-
                     foreach (KeyValuePair<String, Dictionary<string, string>> content in etsFile.GetContents(className).Contents)
                     {
                         string RDFid = content.Key;
 
                         iF.NewIncrementalInstance(RDFid, newUndefinedClass);
+
+                        instanceCount++;
 
                         foreach (KeyValuePair<string, string> attributeAndValue in content.Value)
                         {
@@ -236,7 +285,7 @@ namespace ETStoODMSIncremental
                         {
                             if (logic.LogicTestPasses(content.Value[logic.Attribute]))
                             {
-                                if (logic.Method == "CreateRegulatingControl" &&
+                                if ( logic.Method == "CreateRegulatingControl"  &&
                                     (content.Value[logic.Arguments[0]] == "" ||
                                      content.Value[logic.Arguments[1]] == ""))
                                 {
@@ -248,15 +297,74 @@ namespace ETStoODMSIncremental
                                 int numberOfParameters = logic.Arguments.Count;
                                 string[] parameterValues = new string[numberOfParameters];
 
-                                string newRDFid = Guid.NewGuid().ToString();
-
-                                iF.AddIncrementalAttribute(logic.Destination, newRDFid, true, true);
-
-                                iF.NewMethodInstance(newRDFid, true, methodConfiguration.ClassMappingName);
-
                                 for (int index = 0; index < numberOfParameters; index++)
                                 {
                                     parameterValues[index] = content.Value[logic.Arguments[index]];
+                                }
+
+                                if (logic.Method == "CreateTapChangerNeutralU")
+                                {
+                                    string transformerWindingRDFID = parameterValues[1 - 1];
+
+                                    string ratedKV = 
+                                        GetInstanceAttributeValue(ref etsFile, "TransformerWinding", transformerWindingRDFID, "TransformerWinding.RatedKV");
+
+                                    iF.AddIncrementalAttribute(logic.Destination, ratedKV, false, false);
+
+                                    continue;
+                                }
+
+                                string referencedRDFid;
+                                bool referenceFound = irf.FindReferenceRDFID(RDFid, logic.Destination, out referencedRDFid);
+
+                                if (!referenceFound)
+                                {
+                                    referencedRDFid = Guid.NewGuid().ToString();
+                                    iF.AddPossibleAttribute(logic.Destination, referencedRDFid, true, true);
+                                }
+
+                                bool addMethodInstance = true;  // assume we're adding unless we find a problem.
+
+                                Utils.WriteToLog("--Beginning of logic for class " + className + ", RDFID = " + RDFid);
+
+                                Utils.WriteToLog("----Possible attribute associating Regulating Control to " + className);
+
+                                iF.NewMethodInstance(referencedRDFid, !referenceFound, methodConfiguration.ClassMappingName);
+                                if (!referenceFound)
+                                {
+                                    irf.AddReference(RDFid, logic.Destination, referencedRDFid);
+                                }
+
+                                // Add calculation here
+                                foreach (Calculation calculation in methodConfiguration.Calculations)
+                                {
+                                    string equation = calculation.Equation;
+
+                                    foreach (string operand in calculation.Operands)
+                                    {
+                                        if (operand.Contains('.'))
+                                        {
+                                            string replacement = content.Value[operand];
+
+                                            if (replacement == String.Empty)
+                                            {
+                                                replacement = "0";
+                                            }
+
+                                            equation = equation.Replace(operand, replacement);
+                                        }
+                                        else if (operand.Length > 1 && operand[0] == '$' && Char.IsNumber(operand[1]))
+                                        {
+                                            equation = equation.Replace(operand, parameterValues[Int32.Parse(operand.Substring(1)) - 1]);
+                                        }
+                                    }
+
+                                    string value = calculationEngine.Evaluate(equation).ToString().ToLower();
+
+//                                    iF.AddIncrementalAttribute(calculation.Target, value, false, false);
+                                    iF.AddMethodAttribute(calculation.Target, value, false, false);
+
+                                    Utils.WriteToLog("----Calculation results added for " + calculation.Target + " with value of " + value);
                                 }
 
                                 foreach (Assignment assignment in methodConfiguration.Assignments)
@@ -310,70 +418,283 @@ namespace ETStoODMSIncremental
                                     }
                                     else if (assignment.Attribute.Contains("FindTerminalBusBarSection"))
                                     {
+                                        Utils.WriteToLog("----Trying to find Terminal attached to busbarsection");
+
                                         bool busbarFound = false;
 
-                                        List<string> busbarList = new List<string>();
-
-                                        busbarList.AddRange(etsFile.GetContents("BusBarSection").Contents.Keys);
+                                        if (!busbarListLoaded)
+                                        {
+                                            busbarList.AddRange(etsFile.GetContents("BusBarSection").Contents.Keys);
+                                            busbarListLoaded = true;
+                                        }
 
                                         string parameterValue = parameterValues[2 - 1];
 
                                         bool cn_wasFound = false;
                                         string firstTerminalRDF = "";
 
-                                        foreach (KeyValuePair<string, Dictionary<string, string>> terminalContents in etsFile.GetContents("Terminal").Contents)
+                                        if (!terminalContentsLoaded)
                                         {
-                                            string t_cn = terminalContents.Value["Terminal.ConnectivityNode"];
-                                            bool cn_found = t_cn == parameterValue;
+                                            terminalContents = etsFile.GetContents("Terminal").Contents;
+                                            terminalContentsLoaded = true;
+                                        }
 
-                                            if (cn_found)
+                                        string theTerminal = string.Empty;
+
+                                        if (parameterValue == string.Empty)
+                                        {
+                                            foreach (KeyValuePair<string, Dictionary<string, string>> terminalContent in terminalContents)
                                             {
-                                                cn_wasFound = true;
-
-                                                string t_ce = terminalContents.Value["Terminal.ConductingEquipment"];
-                                                if (t_ce[0] == '#')
+                                                if (terminalContent.Value["Terminal.ConductingEquipment"].Substring(1) == RDFid)
                                                 {
-                                                    t_ce = t_ce.Substring(1);
-                                                }
-                                                bool inBusbarList = busbarList.Contains(t_ce);
+                                                    theTerminal = terminalContent.Key;
 
-                                                if (inBusbarList)
-                                                {
-                                                    iF.AddMethodAttribute(assignment.Destination, terminalContents.Key, true, true);
-                                                    busbarFound = true;
+                                                    Utils.WriteToLog("----TapChanger.ConnectivityNode is null. Using terminal attached to TapChanger");
                                                     break;
-                                                }
-                                                if (firstTerminalRDF == "")
-                                                {
-                                                    firstTerminalRDF = terminalContents.Key;
                                                 }
                                             }
                                         }
-                                        if (!cn_wasFound)
+                                        else
                                         {
-                                            Utils.WriteToLog("ConnectivityNode not found.");
+                                            foreach (KeyValuePair<string, Dictionary<string, string>> terminalContent in terminalContents)
+                                            {
+                                                string t_cn = terminalContent.Value["Terminal.ConnectivityNode"];
+                                                bool cn_found = t_cn == parameterValue;
+
+                                                if (cn_found)
+                                                {
+                                                    cn_wasFound = true;
+
+                                                    string t_ce = terminalContent.Value["Terminal.ConductingEquipment"];
+                                                    if (t_ce[0] == '#')
+                                                    {
+                                                        t_ce = t_ce.Substring(1);
+                                                    }
+                                                    bool inBusbarList = busbarList.Contains(t_ce);
+
+                                                    if (inBusbarList)
+                                                    {
+                                                        theTerminal = terminalContent.Key;
+                                                        busbarFound = true;
+                                                        break;
+                                                    }
+                                                    if (firstTerminalRDF == "")
+                                                    {
+                                                        firstTerminalRDF = terminalContent.Key;
+                                                    }
+                                                }
+                                            }
+                                            if (!cn_wasFound)
+                                            {
+                                                Utils.WriteToLog("ConnectivityNode not found.");
+                                            }
+                                            if (!busbarFound)
+                                            {
+                                                theTerminal = firstTerminalRDF;
+                                                Utils.WriteToLog("BusbarSection terminal not found for ConnectivityNode " + parameterValues[2 - 1] + " while creating RegulatingControl");
+                                            }
                                         }
-                                        if (!busbarFound)
+                                        iF.AddMethodAttribute(assignment.Destination, theTerminal, true, true);
+                                    }
+                                    else if (assignment.Attribute.Contains("FindTerminalTransformerWinding"))
+                                    {
+/*                                        if (RDFid == "1939985237293649459-tc")
                                         {
-                                            iF.AddMethodAttribute(assignment.Destination, firstTerminalRDF, true, true);
-                                            Utils.WriteToLog("BusbarSection terminal not found for ConnectivityNode " + parameterValues[2 - 1] + " while creating RegulatingControl");
+                                            bool hotcrap = true;
+                                        } */
+                                        bool transformerWindingFound = false;
+
+                                        Utils.WriteToLog("----Trying to find Terminal attached to transformerwinding");
+
+                                        if (!transformerWindingListLoaded)
+                                        {
+                                            transformerWindingList.AddRange(etsFile.GetContents("TransformerWinding").Contents.Keys);
+                                            transformerWindingListLoaded = true;
                                         }
+
+                                        string connectivityNodeRDFID = parameterValues[2 - 1];
+                                        string transformerWindingRDFID = parameterValues[4 - 1];
+
+                                        bool cn_wasFound = false;
+                                        // string firstTerminalRDF = "";
+
+                                        if (!terminalContentsLoaded)
+                                        {
+                                            terminalContents = etsFile.GetContents("Terminal").Contents;
+                                            terminalContentsLoaded = true;
+                                        }
+
+                                        string theTerminal = string.Empty;
+
+                                        if (connectivityNodeRDFID == string.Empty)
+                                        {
+                                            foreach (KeyValuePair<string, Dictionary<string, string>> terminalContent in terminalContents)
+                                            {
+                                                if (terminalContent.Value["Terminal.ConductingEquipment"] == transformerWindingRDFID)
+                                                {
+                                                    theTerminal = terminalContent.Key;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            Dictionary<string, string> foundTransformerWindingTerminalPair = new Dictionary<string, string>();
+
+                                            foreach (KeyValuePair<string, Dictionary<string, string>> terminalContent in terminalContents)
+                                            {
+                                                string t_cn = terminalContent.Value["Terminal.ConnectivityNode"];
+                                                bool cn_found = t_cn == connectivityNodeRDFID;
+
+                                                if (cn_found)
+                                                {
+                                                    cn_wasFound = true;
+
+                                                    string t_ce = terminalContent.Value["Terminal.ConductingEquipment"];
+                                                    if (t_ce[0] == '#')
+                                                    {
+                                                        t_ce = t_ce.Substring(1);
+                                                    }
+                                                    bool inTransformerWindingList = transformerWindingList.Contains(t_ce);
+
+                                                    if (inTransformerWindingList)
+                                                    {
+                                                        theTerminal = terminalContent.Key;
+                                                        transformerWindingFound = true;
+                                                        foundTransformerWindingTerminalPair.Add(t_ce, theTerminal);
+                                                    }
+                                                }
+                                            }
+                                            if (!cn_wasFound)
+                                            {
+                                                Utils.WriteToLog("ConnectivityNode not found.");
+                                            }
+                                            if (!transformerWindingFound)
+                                            {
+                                                Utils.WriteToLog("TransformerWinding terminal for TapChangercontrol not found for ConnectivityNode " + parameterValues[2 - 1] + " while creating RegulatingControl");
+                                            }
+                                            if (foundTransformerWindingTerminalPair.Count > 1)
+                                            {
+                                                foreach (KeyValuePair<string, string> tw_t in foundTransformerWindingTerminalPair)
+                                                {
+                                                    if (tw_t.Key == transformerWindingRDFID.Substring(1))
+                                                    {
+                                                        theTerminal = tw_t.Value;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (theTerminal != string.Empty)
+                                        {
+                                            iF.AddMethodAttribute(assignment.Destination, theTerminal, true, true);
+                                        }
+                                        else
+                                        {
+                                            Utils.WriteToLog("Could not find TransformerWinding to determine RegulatingControl.Terminal for");
+                                            Utils.WriteToLog("    ConnectivityNode " + RDFid + " - No RegulatingControl created");
+                                            addMethodInstance = false;
+                                            break;
+                                        }
+                                    }
+                                    else if (assignment.Attribute.Contains("FindTransformerWindingAVR"))
+                                    {
+                                        string transformerWindingRDFID = parameterValues[4 - 1];
+
+                                        if (!transformerWindingContentsLoaded)
+                                        {
+                                            transformerWindingContents = etsFile.GetContents("TransformerWinding").Contents;
+                                            transformerWindingContentsLoaded = true;
+                                        }
+
+                                        string avr = 
+                                            transformerWindingContents[transformerWindingRDFID.Substring(1)]["TransformerWinding.AVR"];
+
+                                        Utils.WriteToLog("----Setting controlEnabled according to TransformerWinding.AVR");
+
+                                        iF.AddMethodAttribute(assignment.Destination, avr, false, true);
+                                        iF.AddIncrementalAttribute("TapChanger.controlEnabled", avr, false, false);
+                                    }
+                                    else if (assignment.Attribute.Contains("FindTransformerWindingRatedKV"))
+                                    {
+                                        Utils.WriteToLog("----Using RatedKV to set NeutralU");
+
+                                        string transformerWindingRDFID = parameterValues[4 - 1];
+
+                                        if (!transformerWindingContentsLoaded)
+                                        {
+                                            transformerWindingContents = etsFile.GetContents("TransformerWinding").Contents;
+                                            transformerWindingContentsLoaded = true;
+                                        }
+
+                                        string neutralU =
+                                            transformerWindingContents[transformerWindingRDFID.Substring(1)]["TransformerWinding.RatedKV"];
+
+                                        iF.AddIncrementalAttribute("TapChanger.neutralU", neutralU, false, false);
                                     }
                                     else if (assignment.Attribute.Contains("FindIntervalSchedTimePointTargetValue"))
                                     {
-                                        string parameterValue = parameterValues[1 - 1];
-                                        //                                    if (parameterValue[0] == '#')
-                                        //                                    {
-                                        //                                        parameterValue = parameterValue.Substring(1);
-                                        //                                    }
+                                        string regulationScheduleRDFID = parameterValues[1 - 1];
 
-                                        foreach (KeyValuePair<string, Dictionary<string, string>> intervalSchedTimePointContents in etsFile.GetContents("IntervalSchedTimePoint").Contents)
+                                        string connectivityNodeRDFID = parameterValues[2 - 1];
+
+                                        if (connectivityNodeRDFID == string.Empty)
                                         {
-                                            if (intervalSchedTimePointContents.Value["IntervalSchedTimePoint.RegularIntervalSchedule"] == parameterValue &&
-                                                Int32.Parse(intervalSchedTimePointContents.Value["IntervalSchedTimePoint.SequenceNumber"]) == 1)
+                                            if (!terminalContentsLoaded)
                                             {
+                                                terminalContents = etsFile.GetContents("Terminal").Contents;
+                                                terminalContentsLoaded = true;
+                                            }
+
+                                            foreach (KeyValuePair<string, Dictionary<string, string>> terminalContent in terminalContents)
+                                            {
+                                                if (terminalContent.Value["Terminal.ConductingEquipment"].Substring(1) == RDFid)
+                                                {
+                                                    connectivityNodeRDFID = terminalContent.Value["Terminal.ConnectivityNode"];
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        string voltageLevelRDFID =
+                                            GetInstanceAttributeValue(ref etsFile,
+                                                                      "ConnectivityNode",
+                                                                      connectivityNodeRDFID,
+                                                                      "ConnectivityNode.ConnectivityNodeContainer");
+                                        string baseVoltageRDFID =
+                                            GetInstanceAttributeValue(ref etsFile,
+                                                                      "VoltageLevel",
+                                                                      voltageLevelRDFID,
+                                                                      "VoltageLevel.BaseVoltage");
+                                        string voltageBaseValue =
+                                            GetInstanceAttributeValue(ref etsFile,
+                                                                      "BaseVoltage",
+                                                                      baseVoltageRDFID,
+                                                                      "BaseVoltage.VoltageBase");
+
+                                        if (!intervalSchedTimePointContentsLoaded)
+                                        {
+                                            intervalSchedTimePointContents = etsFile.GetContents("IntervalSchedTimePoint").Contents;
+                                            intervalSchedTimePointContentsLoaded = true;
+                                        }
+
+                                        foreach (KeyValuePair<string, Dictionary<string, string>> intervalSchedTimePointContent
+                                                 in intervalSchedTimePointContents)
+                                        {
+                                            if (intervalSchedTimePointContent.Value["IntervalSchedTimePoint.RegularIntervalSchedule"]
+                                                                             == regulationScheduleRDFID &&
+                                                Int32.Parse(intervalSchedTimePointContent.Value["IntervalSchedTimePoint.SequenceNumber"])
+                                                                             == 1)
+                                            {
+                                                string destinationValue =
+                                                    calculationEngine.Evaluate
+                                                        (voltageBaseValue +
+                                                            " * " +
+                                                         intervalSchedTimePointContent.Value["IntervalSchedTimePoint.Value1"]).ToString();
+
                                                 iF.AddMethodAttribute(assignment.Destination,
-                                                                      intervalSchedTimePointContents.Value["IntervalSchedTimePoint.Value1"],
+                                                                      destinationValue,
+                                                                      //                                                                      intervalSchedTimePointContent.Value["IntervalSchedTimePoint.Value1"],
                                                                       false,
                                                                       true);
                                                 break;
@@ -382,19 +703,67 @@ namespace ETStoODMSIncremental
                                     }
                                     else if (assignment.Attribute.Contains("FindIntervalSchedTimePointDeadBand"))
                                     {
-                                        string parameterValue = parameterValues[1 - 1];
-                                        //                                    if (parameterValue[0] == '#')
-                                        //                                    {
-                                        //                                        parameterValue = parameterValue.Substring(1);
-                                        //                                    }
+                                        string regulationScheduleRDFID = parameterValues[1 - 1];
 
-                                        foreach (KeyValuePair<string, Dictionary<string, string>> intervalSchedTimePointContents in etsFile.GetContents("IntervalSchedTimePoint").Contents)
+                                        string connectivityNodeRDFID = parameterValues[2 - 1];
+
+                                        if (connectivityNodeRDFID == string.Empty)
                                         {
-                                            if (intervalSchedTimePointContents.Value["IntervalSchedTimePoint.RegularIntervalSchedule"] == parameterValue &&
-                                                Int32.Parse(intervalSchedTimePointContents.Value["IntervalSchedTimePoint.SequenceNumber"]) == 1)
+                                            if (!terminalContentsLoaded)
                                             {
+                                                terminalContents = etsFile.GetContents("Terminal").Contents;
+                                                terminalContentsLoaded = true;
+                                            }
+
+                                            foreach (KeyValuePair<string, Dictionary<string, string>> terminalContent in terminalContents)
+                                            {
+                                                if (terminalContent.Value["Terminal.ConductingEquipment"].Substring(1) == RDFid)
+                                                {
+                                                    connectivityNodeRDFID = terminalContent.Value["Terminal.ConnectivityNode"];
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        string voltageLevelRDFID =
+                                            GetInstanceAttributeValue(ref etsFile,
+                                                                      "ConnectivityNode",
+                                                                      connectivityNodeRDFID,
+                                                                      "ConnectivityNode.ConnectivityNodeContainer");
+                                        string baseVoltageRDFID =
+                                            GetInstanceAttributeValue(ref etsFile,
+                                                                      "VoltageLevel",
+                                                                      voltageLevelRDFID,
+                                                                      "VoltageLevel.BaseVoltage");
+                                        string voltageBaseValue =
+                                            GetInstanceAttributeValue(ref etsFile,
+                                                                      "BaseVoltage",
+                                                                      baseVoltageRDFID,
+                                                                      "BaseVoltage.VoltageBase");
+
+                                        if (!intervalSchedTimePointContentsLoaded)
+                                        {
+                                            intervalSchedTimePointContents = etsFile.GetContents("IntervalSchedTimePoint").Contents;
+                                            intervalSchedTimePointContentsLoaded = true;
+                                        }
+
+                                        foreach (KeyValuePair<string, Dictionary<string, string>> intervalSchedTimePointContent
+                                                 in intervalSchedTimePointContents)
+                                        {
+                                            if (intervalSchedTimePointContent.Value["IntervalSchedTimePoint.RegularIntervalSchedule"]
+                                                                             == regulationScheduleRDFID &&
+                                                Int32.Parse(intervalSchedTimePointContent.Value["IntervalSchedTimePoint.SequenceNumber"])
+                                                                             == 1)
+                                            {
+                                                string destinationValue =
+                                                    calculationEngine.Evaluate
+                                                        (voltageBaseValue +
+                                                            " * " +
+                                                         intervalSchedTimePointContent.Value["IntervalSchedTimePoint.Value2"]).ToString();
+
                                                 iF.AddMethodAttribute(assignment.Destination,
-                                                                      intervalSchedTimePointContents.Value["IntervalSchedTimePoint.Value2"],
+                                                                      destinationValue,
+                                                                      //                                                                      intervalSchedTimePointContent.Value["IntervalSchedTimePoint.Value2"],
                                                                       false,
                                                                       true);
                                                 break;
@@ -402,9 +771,182 @@ namespace ETStoODMSIncremental
                                         }
 
                                     }
+                                    else if (assignment.Attribute.Contains("FindTapChangerIntervalSchedTimePointTargetValue"))
+                                    {
+                                        string manualValue = parameterValues[3 - 1];
+
+                                        if (manualValue.ToLower() == "true")
+                                        {
+                                            iF.AddMethodAttribute(assignment.Destination,
+                                                                  parameterValues[5 - 1],
+                                                                  false,
+                                                                  true);
+
+                                        }
+                                        else
+                                        {
+                                            string regulationScheduleRDFID = parameterValues[1 - 1];
+                                            string connectivityNodeRDFID = parameterValues[2 - 1];
+                                            string transformerWindingRDFID = parameterValues[4 - 1];
+
+                                            if (connectivityNodeRDFID == string.Empty)
+                                            {
+                                                if (!terminalContentsLoaded)
+                                                {
+                                                    terminalContents = etsFile.GetContents("Terminal").Contents;
+                                                    terminalContentsLoaded = true;
+                                                }
+
+                                                foreach (KeyValuePair<string, Dictionary<string, string>> terminalContent in terminalContents)
+                                                {
+                                                    if (terminalContent.Value["Terminal.ConductingEquipment"] == transformerWindingRDFID)
+                                                    {
+                                                        connectivityNodeRDFID = terminalContent.Value["Terminal.ConnectivityNode"];
+                                                        break;
+                                                    }
+                                                }
+                                            }
+
+                                            if (connectivityNodeRDFID == string.Empty)
+                                                continue;
+
+                                            string voltageLevelRDFID =
+                                                GetInstanceAttributeValue(ref etsFile,
+                                                                          "ConnectivityNode",
+                                                                          connectivityNodeRDFID,
+                                                                          "ConnectivityNode.ConnectivityNodeContainer");
+                                            string baseVoltageRDFID =
+                                                GetInstanceAttributeValue(ref etsFile,
+                                                                          "VoltageLevel",
+                                                                          voltageLevelRDFID,
+                                                                          "VoltageLevel.BaseVoltage");
+                                            string voltageBaseValue =
+                                                GetInstanceAttributeValue(ref etsFile,
+                                                                          "BaseVoltage",
+                                                                          baseVoltageRDFID,
+                                                                          "BaseVoltage.VoltageBase");
+
+                                            if (!intervalSchedTimePointContentsLoaded)
+                                            {
+                                                intervalSchedTimePointContents = etsFile.GetContents("IntervalSchedTimePoint").Contents;
+                                                intervalSchedTimePointContentsLoaded = true;
+                                            }
+
+                                            foreach (KeyValuePair<string, Dictionary<string, string>> intervalSchedTimePointContent
+                                                     in intervalSchedTimePointContents)
+                                            {
+                                                if (intervalSchedTimePointContent.Value["IntervalSchedTimePoint.RegularIntervalSchedule"]
+                                                                                 == regulationScheduleRDFID &&
+                                                    Int32.Parse(intervalSchedTimePointContent.Value["IntervalSchedTimePoint.SequenceNumber"])
+                                                                                 == 1)
+                                                {
+                                                    string destinationValue =
+                                                        calculationEngine.Evaluate
+                                                            (voltageBaseValue +
+                                                                " * " +
+                                                            intervalSchedTimePointContent.Value["IntervalSchedTimePoint.Value1"]).ToString();
+
+                                                    iF.AddMethodAttribute(assignment.Destination,
+                                                                          destinationValue,
+                                                                          false,
+                                                                          true);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else if (assignment.Attribute.Contains("FindTapChangerIntervalSchedTimePointDeadBand"))
+                                    {
+                                        string manualValue = parameterValues[3 - 1];
+
+                                        if (manualValue.ToLower() == "true")
+                                        {
+                                            iF.AddMethodAttribute(assignment.Destination,
+                                                                  parameterValues[6 - 1],
+                                                                  false,
+                                                                  true);
+
+                                        }
+                                        else
+                                        {
+                                            string regulationScheduleRDFID = parameterValues[1 - 1];
+                                            string connectivityNodeRDFID = parameterValues[2 - 1];
+                                            string transformerWindingRDFID = parameterValues[4 - 1];
+
+                                            if (connectivityNodeRDFID == string.Empty)
+                                            {
+                                                if (!terminalContentsLoaded)
+                                                {
+                                                    terminalContents = etsFile.GetContents("Terminal").Contents;
+                                                    terminalContentsLoaded = true;
+                                                }
+
+                                                foreach (KeyValuePair<string, Dictionary<string, string>> terminalContent in terminalContents)
+                                                {
+                                                    if (terminalContent.Value["Terminal.ConductingEquipment"] == transformerWindingRDFID)
+                                                    {
+                                                        connectivityNodeRDFID = terminalContent.Value["Terminal.ConnectivityNode"];
+                                                        break;
+                                                    }
+                                                }
+                                            }
+
+                                            if (connectivityNodeRDFID == string.Empty)
+                                                continue;
+
+                                            string voltageLevelRDFID =
+                                                GetInstanceAttributeValue(ref etsFile,
+                                                                          "ConnectivityNode",
+                                                                          connectivityNodeRDFID,
+                                                                          "ConnectivityNode.ConnectivityNodeContainer");
+                                            string baseVoltageRDFID =
+                                                GetInstanceAttributeValue(ref etsFile,
+                                                                          "VoltageLevel",
+                                                                          voltageLevelRDFID,
+                                                                          "VoltageLevel.BaseVoltage");
+                                            string voltageBaseValue =
+                                                GetInstanceAttributeValue(ref etsFile,
+                                                                          "BaseVoltage",
+                                                                          baseVoltageRDFID,
+                                                                          "BaseVoltage.VoltageBase");
+
+                                            if (!intervalSchedTimePointContentsLoaded)
+                                            {
+                                                intervalSchedTimePointContents = etsFile.GetContents("IntervalSchedTimePoint").Contents;
+                                                intervalSchedTimePointContentsLoaded = true;
+                                            }
+
+                                            foreach (KeyValuePair<string, Dictionary<string, string>> intervalSchedTimePointContent
+                                                     in intervalSchedTimePointContents)
+                                            {
+                                                if (intervalSchedTimePointContent.Value["IntervalSchedTimePoint.RegularIntervalSchedule"]
+                                                                                 == regulationScheduleRDFID &&
+                                                    Int32.Parse(intervalSchedTimePointContent.Value["IntervalSchedTimePoint.SequenceNumber"])
+                                                                                 == 1)
+                                                {
+                                                    string destinationValue =
+                                                        calculationEngine.Evaluate
+                                                            (voltageBaseValue +
+                                                                " * " +
+                                                             intervalSchedTimePointContent.Value["IntervalSchedTimePoint.Value2"]).ToString();
+
+                                                    iF.AddMethodAttribute(assignment.Destination,
+                                                                          destinationValue,
+                                                                          false,
+                                                                          true);
+                                                    break;
+                                                }
+                                            }
+
+                                        }
+                                    }
                                 }
 
-                                iF.AddToMethodElements();
+                                if (addMethodInstance)
+                                {
+                                    iF.PossibleAttributeComplete(); // add reference to new method created attribute;
+                                    iF.AddToMethodElements();       // add the newly created instance to the list of instances.
+                                }
                             }
                         }
 
@@ -412,7 +954,7 @@ namespace ETStoODMSIncremental
                         iF.AddCurrentElement();
                     }
 
-                    iF.MethodComplete();
+                    iF.MethodComplete();  // Add all the newly created instances
 
                     Utils.WriteTimeToConsoleAndLog(String.Format("Processed {0} instances of class {1}.", instanceCount, className));
                 }
@@ -421,6 +963,7 @@ namespace ETStoODMSIncremental
             if (m_IncXmlFile)
             {
                 iF.Save();
+                irf.Save();
             }
 
             if (m_ExTextFile)
@@ -428,13 +971,18 @@ namespace ETStoODMSIncremental
                 ExtensionsOutput.DumpSummary();  //Top off the output file with the Summary Report of unique extensions
             }
 
+            if (m_ExExcelFile)
+            {
+                ExtensionsOutput.CloseWorkbook();  //Close out the workbook
+            }
+
             if (m_CsqlFile)
             {
                 SQLOutput.Cleanup();  //Close the SQL output file
             }
 
-            DialogResult result = MessageBox.Show("Delete ETS Subset file created for this conversion?",
-                                                  "Incremental File Creation Complete",
+            DialogResult result = MessageBox.Show("Delete ETS Subset files created for this conversion?",
+                                                  "ETStoODMSIncremental Output File Creation Complete",
                                                   MessageBoxButtons.YesNo);
             if (result == DialogResult.Yes)
             {            
@@ -451,11 +999,23 @@ namespace ETStoODMSIncremental
             System.Threading.Thread.Sleep(5000);
 		}
 
-        public string GetInstanceAttributeValue()
+        public static string GetInstanceAttributeValue(ref ETSFile etsFile, string className, string rdfID, string attributeDefinition)
         {
-            return "poop";
+            ETSSubsetContents contents = etsFile.GetContents(className);
+
+            if (rdfID[0] == '#')
+            {
+                rdfID = rdfID.Substring(1);
+            }
+            Dictionary<string, string> attributeNameAndValue = contents.Contents[rdfID];
+
+            string instanceAttributeValue = attributeNameAndValue[attributeDefinition];
+
+            return instanceAttributeValue;
+//            return etsFile.GetContents(className).Contents[rdfID][attributeDefinition];
         }
-		public static void WriteTimeToConsole()
+
+        public static void WriteTimeToConsole()
 		{
 			Console.Write("{0:T}", DateTime.Now);
         }

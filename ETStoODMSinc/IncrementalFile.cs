@@ -1,9 +1,24 @@
-﻿using System;
+﻿/*
+ 
+Copyright© 2018 Project Consultants, LLC
+ 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ 
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.”
+ 
+*/
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using System.IO;
 
 namespace ETStoODMSIncremental
 {
@@ -12,6 +27,7 @@ namespace ETStoODMSIncremental
 		XDocument incrementalDocument;
 
 		string incrementalFileName;
+        string incrementalReferenceFileName;
 
 		XNamespace cimNS = "http://iec.ch/TC57/2013/CIM-schema-cim16#";
 		XNamespace dmNS = "http://iec.ch/2002/schema/CIM_difference_model#";
@@ -24,6 +40,7 @@ namespace ETStoODMSIncremental
 
         XElement currentElement;
         XElement methodElement;
+        XElement currentAttribute;
 
         List<XElement> methodElements;
 
@@ -32,6 +49,13 @@ namespace ETStoODMSIncremental
 			rdfNS = rdfNamespace;
 
 			this.incrementalFileName = incrementalFileName;
+            incrementalReferenceFileName = Path.Combine(
+                Path.GetDirectoryName(incrementalFileName),
+                Path.GetFileNameWithoutExtension(incrementalFileName),
+                "_reference",
+                Path.GetExtension(incrementalFileName));
+
+            IncrementalReferenceFile irf = new IncrementalReferenceFile(incrementalReferenceFileName, rdfNS);
 
             methodElements = new List<XElement>();
 
@@ -97,6 +121,47 @@ namespace ETStoODMSIncremental
                 element = new XElement(cimNS + newClassName, new XAttribute(rdfNS + "ID", RDFid));
             }
 		}
+
+        public void AddPossibleAttribute(string destination, string value, bool isRDF, bool newUndefinedClass)
+        {
+            if (value == null || value == string.Empty)
+            {
+                return;            // null value - no need to add this.
+            }
+
+            if (value.Contains("http:"))
+            {
+                isRDF = true;
+            }
+
+            XName currentXName;
+
+            if (destination.Contains("AEP_"))
+            {
+                currentXName = aepNS + destination;
+            }
+            else
+            {
+                currentXName = cimNS + destination;
+            }
+
+            if (isRDF)
+            {
+                if (value[0] != '#' && !value.Contains("http:"))
+                {
+                    value = "#" + value;
+                }
+                currentAttribute = new XElement(currentXName, new XAttribute(rdfNS + "resource", value));
+            }
+            else
+            {
+                currentAttribute = new XElement(currentXName, value);
+            }
+        }
+        public void PossibleAttributeComplete()
+        {
+            currentElement.Add(currentAttribute);
+        }
 
         public void AddIncrementalAttribute(string destination, string value, bool isRDF, bool newUndefinedClass)
         {

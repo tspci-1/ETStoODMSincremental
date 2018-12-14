@@ -184,9 +184,14 @@ namespace ETStoODMSIncremental
                 MessageBox.Show("You must select an Alstom ETS input file.");
                 return;
             }
-           
+            this.FormClosed -= new System.Windows.Forms.FormClosedEventHandler(this.Form1_FormClosed); //Disable if we exit through the 'Begin Processing' button
             Console.WriteLine("Hit the Begin Processing Button");
             Form1.ActiveForm.Dispose();
+        }
+
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            Environment.Exit(0);
         }
     }
 }
