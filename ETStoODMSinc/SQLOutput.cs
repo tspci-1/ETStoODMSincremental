@@ -43,7 +43,7 @@ namespace ETStoODMSIncremental
         public static string RetainedClassName = "";
         public static string subattribute = "";
         public static string subClassOf = "";
-        public static Guid g;
+        public static Guid g, g1;
         public static SortedDictionary<string, string> ClassAttributes = new SortedDictionary<string, string>();  //used to filter out duplicates
 
         /* Create Table strings
@@ -53,21 +53,26 @@ namespace ETStoODMSIncremental
          * See ODMS AddClass SP for usage
          * */
 
-        public static string createTable1 = "\nCREATE TABLE AEP_{0}\n" +
-                                            "(OID uniqueidentifier, CONSTRAINT PK_AEP_{0} PRIMARY KEY NONCLUSTERED (OID))\n" +
-                                            "ALTER TABLE  [AEP_{0}] ADD CONSTRAINT FK_AEP_{0}Base FOREIGN KEY(OID) REFERENCES {1}(OID)\n" +
-                                            "ON DELETE CASCADE;\n" +
-                                            "EXEC AddClass '{{{2}}}','cim:{1}', 'aep:AEP_{0}', 0, 0;\n" +
-                                            "GO\n ";
+        /*      public static string createTable1 = "\nCREATE TABLE AEP_{0}\n" +
+                                                  "(OID uniqueidentifier, CONSTRAINT PK_AEP_{0} PRIMARY KEY NONCLUSTERED (OID))\n" +
+                                                  "ALTER TABLE  [AEP_{0}] ADD CONSTRAINT FK_AEP_{0}Base FOREIGN KEY(OID) REFERENCES {1}(OID)\n" +
+                                                  "ON DELETE CASCADE;\n" +
+                                                  "EXEC AddClass '{{{2}}}','cim:{1}', 'aep:AEP_{0}', 0, 0;\n" +
+                                                  "GO\n "; */
+        public static string createTable1 =  "\nEXEC AddClass '{{{2}}}','cim:{1}', 'aep:AEP_{0}', 1, 0;\n" +
+                                             "GO\n ";
 
-        public static string createTable2 = "\nCREATE TABLE AEP_{0}\n" +
-                                            "(OID uniqueidentifier, CONSTRAINT PK_AEP_{0} PRIMARY KEY NONCLUSTERED (OID))\n" +
-                                            "ALTER TABLE  [AEP_{0}] ADD CONSTRAINT FK_AEP_{0}Base FOREIGN KEY(OID) REFERENCES {1}(OID)\n" +
-                                            "ON DELETE CASCADE;\n" +
-                                            "EXEC AddClass '{{{2}}}','pti:{1}', 'aep:AEP_{0}', 0, 0;\n" +
-                                            "GO\n ";
 
-        public static string alterTable = "ALTER TABLE {0} \nADD CONSTRAINT FK_{1} FOREIGN KEY(OID) REFERENCES {0}(OID) ON DELETE CASCADE;\nGO\n";
+        /* public static string createTable2 = "\nCREATE TABLE AEP_{0}\n" +
+                                             "(OID uniqueidentifier, CONSTRAINT PK_AEP_{0} PRIMARY KEY NONCLUSTERED (OID))\n" +
+                                             "ALTER TABLE  [AEP_{0}] ADD CONSTRAINT FK_AEP_{0}Base FOREIGN KEY(OID) REFERENCES {1}(OID)\n" +
+                                             "ON DELETE CASCADE;\n" +
+                                             "EXEC AddClass '{{{2}}}','pti:{1}', 'aep:AEP_{0}', 0, 0;\n" +
+                                             "GO\n "; */
+        public static string createTable2 =  "\nEXEC AddClass '{{{2}}}','pti:{1}', 'aep:AEP_{0}', 0, 0;\n" +
+                                             "GO\n  ";
+
+     /*   public static string alterTable = "ALTER TABLE {0} \nADD CONSTRAINT FK_{1} FOREIGN KEY(OID) REFERENCES {0}(OID) ON DELETE CASCADE;\nGO\n"; */
 
         public static string createTableName="";
         public static Boolean createTableNameFlag = false;
@@ -78,9 +83,11 @@ namespace ETStoODMSIncremental
          * Second is when Parent class has been specified
          * */
 
-        public static string AssociationString1 = "ALTER TABLE  [{0}] \n ADD [FK_{0}_{1}] uniqueidentifier NULL;\n ALTER TABLE  [{0}] \n" +
-                                                                               "ADD CONSTRAINT [FK_{0}_{1}] FOREIGN KEY(OID) REFERENCES {1}(OID);\nGO\n";
-      
+        /* public static string AssociationString1 = "ALTER TABLE  [{0}] \n ADD [FK_{0}_{1}] uniqueidentifier NULL;\n ALTER TABLE  [{0}] \n" +
+                                                                               "ADD CONSTRAINT [FK_{0}_{1}] FOREIGN KEY(OID) REFERENCES {1}(OID);\nGO\n"; */
+        public static string AssociationString1 = "EXEC AddAssociation '{0}', 'aep:{2}', 'aep:{2}.{3}','{1}','cim:{3}.{2}',NULL, 1,'M:0..1', 'M:0..1', 'AEP';";
+
+
         public static string AssociationString2 = "ALTER TABLE  [{0}] \n ADD [FK_{0}_{1}] uniqueidentifier NULL;\n ALTER TABLE  [{0}] \n" +
                                                                                 "ADD CONSTRAINT [FK_{0}_{1}] FOREIGN KEY(OID) REFERENCES {2}(OID);\nGO\n";
 
@@ -205,15 +212,18 @@ namespace ETStoODMSIncremental
             className = attribute.Split('.').First();
             subattribute = attribute.Split('.').Last();
 
-            if (dataType.Equals("association"))
+            if (dataType.Equals("association")) //This may need to be reviewed and tested to see when assocstr-2 would be usedop
             {
+                g = Guid.NewGuid();
+                g1 = Guid.NewGuid();
                 if (inheritsFrom.Equals(""))
                 {//Do the default parent class
-                    SQLOF.WriteLine(AssociationString1, RetainedClassName, subattribute);
+                    SQLOF.WriteLine(AssociationString1, g.ToString(), g1.ToString(),  RetainedClassName, subattribute);
                     return;
                 }
                 else
                 {//Do the parent class explicitly specified
+                 //    SQLOF.WriteLine(AssociationString2, g.ToString(), RetainedClassName, subattribute, inheritsFrom);
                     SQLOF.WriteLine(AssociationString2, RetainedClassName, subattribute, inheritsFrom);
                     return;
                 }
