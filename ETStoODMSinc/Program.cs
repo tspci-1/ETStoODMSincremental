@@ -70,7 +70,7 @@ namespace ETStoODMSIncremental
                 alstomETSFilename = frm.ETSFIlePath;
             }
            
-			configurationPath = Path.GetDirectoryName(configurationFilename);  //Just want this line for testing form1 usage
+			configurationPath = Path.GetDirectoryName(configurationFilename);  
 
 			Utils.CreateLog(new StreamWriter
 							   (Path.Combine
@@ -78,7 +78,7 @@ namespace ETStoODMSIncremental
 									Path.GetFileNameWithoutExtension(configurationFilename)
 										 + DateTime.Now.ToString("_yyyyMMdd_HHmmss") + "_LOG.log")));
 
-			alstomETSPath = Path.GetDirectoryName(alstomETSFilename);  //Just want this line for testing form1 usage
+			alstomETSPath = Path.GetDirectoryName(alstomETSFilename);  
 
             Utils.WriteTimeToConsoleAndLog("ETStoODMSIncremental invoked with configuration file " + configurationFilename);
             Utils.WriteTimeToConsoleAndLog(" and ETS file " + alstomETSFilename);

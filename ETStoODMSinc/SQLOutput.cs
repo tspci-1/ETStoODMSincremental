@@ -43,6 +43,10 @@ namespace ETStoODMSIncremental
         public static string RetainedClassName = "";
         public static string subattribute = "";
         public static string subClassOf = "";
+        public static string multiplicity = "";
+        public static string multiplicity1 = "";
+        public static string multiplicity2 = "";
+        public static string targetClass = "";
         public static Guid g, g1;
         public static SortedDictionary<string, string> ClassAttributes = new SortedDictionary<string, string>();  //used to filter out duplicates
 
@@ -76,6 +80,8 @@ namespace ETStoODMSIncremental
 
         public static string createTableName="";
         public static Boolean createTableNameFlag = false;
+        public static Boolean aepAttributeFlag = false;
+        public static Boolean propertyConstraintFlag = true;
 
         /*Alter Table strings
          * 
@@ -85,11 +91,33 @@ namespace ETStoODMSIncremental
 
         /* public static string AssociationString1 = "ALTER TABLE  [{0}] \n ADD [FK_{0}_{1}] uniqueidentifier NULL;\n ALTER TABLE  [{0}] \n" +
                                                                                "ADD CONSTRAINT [FK_{0}_{1}] FOREIGN KEY(OID) REFERENCES {1}(OID);\nGO\n"; */
-        public static string AssociationString1 = "EXEC AddAssociation '{0}', 'aep:{2}', 'aep:{2}.{3}','{1}','cim:{3}.{2}',NULL, 1,'M:0..1', 'M:0..1', 'AEP';";
+        public static string AssociationString1 = "EXEC AddAssociation '{0}', 'aep:{2}', 'aep:{2}.{3}','{1}','cim:{3}.{2}',NULL, 1,'{4}', '{5}', 'AEP';\nGO\n";
 
 
-        public static string AssociationString2 = "ALTER TABLE  [{0}] \n ADD [FK_{0}_{1}] uniqueidentifier NULL;\n ALTER TABLE  [{0}] \n" +
-                                                                                "ADD CONSTRAINT [FK_{0}_{1}] FOREIGN KEY(OID) REFERENCES {2}(OID);\nGO\n";
+        /*public static string AssociationString2 = "ALTER TABLE  [{0}] \n ADD [FK_{0}_{1}] uniqueidentifier NULL;\n ALTER TABLE  [{0}] \n" +
+                                                                                "ADD CONSTRAINT [FK_{0}_{1}] FOREIGN KEY(OID) REFERENCES {2}(OID);\nGO\n"; */
+        public static string AssociationString2 = "EXEC AddAssociation '{0}', 'cim:{2}', 'cim:{2}.{3}','{1}','aep:{3}.{2}',NULL, 1,'{4}', '{5}', 'AEP';\nGO\n";
+
+        public static string AssociationString3 = "EXEC AddAssociation '{0}', 'cim:{3}', 'cim:{3}.{2}','{1}','aep:{2}.{3}','{4}ID', 1,'{5}', '{6}', 'AEP';\nGO\n";
+
+          public static string AssociationString4 = "Declare @id1 uniqueidentifier;\n" +
+                                              "Declare @id2 uniqueidentifier;\n SET @id1 = NEWID();\n SET @id2 = NEWID();\n" +
+                                              "INSERT INTO Resources(OID, URI, ResourceType, TableName, ColumnName)\n" +
+                                              "VALUES(@id1, 'cim:{0}.{1}', 3, '{1}', '{2}ID');\n" +
+                                              "INSERT INTO Resources(OID, URI, ResourceType, TableName, ColumnName)\n" +
+                                              "VALUES(@id2, 'cim:{1}.{0}s', 3, '{0}', NULL);" +
+                                              "INSERT INTO Property(PropertyID, ClassID, rdf_ID, rdfs_label, rdfs_comment, rdfs_domain, rdfs_range, cims_multiplicity,cims_inverseRoleName)\n" +
+                                              "VALUES(@id1, (SELECT ClassID FROM CLASS WHERE rdf_id = '{0}' AND ClassType = 'Class'), '{0}.{1}', '{1}'," +
+                                              "'The {1} of the voltage level.', '{0}', '{1}', '{4}', '{1}.{0}');\n" +
+                                              "INSERT INTO Property(PropertyID, ClassID, rdf_ID, rdfs_label, rdfs_comment, rdfs_domain, rdfs_range, cims_multiplicity,cims_inverseRoleName)\n" +
+                                              "VALUES(@id2, (SELECT ClassID FROM CLASS WHERE rdf_id = '{1}' AND ClassType = 'Class'), '{1}.{0}'," +
+                                              "'{0}', 'The FAR voltage levels within this {1}.', '{1}', '{2}ID', '{3}', '{0}.{1}');\n" +
+                                              "UPDATE Property SET InverseRoleNameID = @id2 WHERE PropertyID = @id1;\n" +
+                                              "UPDATE Property SET InverseRoleNameID = @id1 WHERE PropertyID = @id2;\n" +
+                                              "\nDeclare @sql nvarchar(4000);\n" +
+                                              "SET @sql = (SELECT 'ALTER TABLE {1} ADD {2}ID uniqueidentifier NULL ' +" +
+                                              "' FOREIGN KEY REFERENCES {0} (OID)'  FROM Resources WHERE URI = 'cim:{1}')\n" +
+                                              "EXEC(@sql)\n\n"; 
 
         /* Args for addProp
     * {0} = NEWID()
@@ -107,7 +135,7 @@ namespace ETStoODMSIncremental
         public static string addProp1 = "EXEC AddProperty '{{{0}}}', 'cim:{1}', 'aep:{2}', '{3}', '{4}', NULL, 'M:0..1', 'AEP';" +
                                                               "\nUPDATE Resources SET URI = 'aep:AEP_{2}' WHERE URI = 'aep:{2}';\nGO\n";
 
-        public static string addProp2 = "EXEC AddProperty '{{{0}}}', 'aep:AEP_{1}', 'aep:AEP_{2}', '{3}', '{4}', NULL, 'M:0..1', 'AEP'; \nGO\n\n";
+        public static string addProp2 = "EXEC AddProperty '{{{0}}}', 'aep:AEP_{1}', 'aep:AEP_{2}', '{3}', '{4}', NULL, 'M:0..1', 'AEP';\nGO\n";
 
         /* Constructor
          * 
@@ -131,10 +159,12 @@ namespace ETStoODMSIncremental
             /* Removed the need to edit the entire configuration workbook
              * 
              * */
+        aepAttributeFlag = false;
 
             if (attribute.Contains("AEP_"))   
             {
                 attribute = attribute.Substring(4);
+                aepAttributeFlag = true;
             }
 
             /*Trigger on a callsname change
@@ -175,7 +205,8 @@ namespace ETStoODMSIncremental
 
             if (classNameChange)
             { // Depends on whether table is in cim namespace or pti namespace
-                if (!inheritsFrom.Equals("") && !attribute.Contains("."))
+                if (!(inheritsFrom.Equals("") || inheritsFrom.Contains("M:")) && !attribute.Contains(".")) //This ignores the multiplicity entries? Check this with walk-through!!!!*****
+              //if (!(inheritsFrom.Equals("")) && !attribute.Contains(".")) - original code
                 { //This is when we are creating a table
 
                     g = Guid.NewGuid();
@@ -208,23 +239,51 @@ namespace ETStoODMSIncremental
              * could throw a flag and call for a timeout to fix it.  5 yd penalty.
              * 
              * */
+            if (propertyConstraintFlag)
+            {
+                SQLOF.WriteLine("\nALTER TABLE[dbo].[Property] DROP CONSTRAINT[UNQ_Property]\nGO\n");
+                SQLOF.WriteLine("\nALTER TABLE [dbo].[Property] ADD  CONSTRAINT [UNQ_Property] UNIQUE NONCLUSTERED ( [rdf_ID] ASC ) " +
+                                    "WITH(PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = ON, ONLINE = OFF," +
+                                    "ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON[PRIMARY]\nGO\n");
+                propertyConstraintFlag = false;  //Shutdown the urge to write this out again
+            }
+
 
             className = attribute.Split('.').First();
             subattribute = attribute.Split('.').Last();
 
-            if (dataType.Equals("association")) //This may need to be reviewed and tested to see when assocstr-2 would be usedop
+            if (dataType.Equals("association")) //This may need to be reviewed and tested to see when assocstr-2 would be used
             {
                 g = Guid.NewGuid();
                 g1 = Guid.NewGuid();
-                if (inheritsFrom.Equals(""))
+                targetClass = inheritsFrom.Split('&').First().Trim();
+                multiplicity = inheritsFrom.Split('&').Last().Trim();
+                multiplicity1 = multiplicity.Split('-').First();
+                multiplicity2 = multiplicity.Split('-').Last();
+                /*   if (inheritsFrom.Equals("") || inheritsFrom.Contains("M:"))  //This may need tweaking for when to use */
+                if (targetClass.Equals("") && RetainedClassName.Contains("AEP_"))  //This may need tweaking for when to use
+                                                                                   //From now on it will never be empty and an association as every association must have a multiplicity entry and possibly a target class
+                                                                                   //This could test for a blank and throw an error indicating it ran into a wrongly entered row....
+                                                                                   //Change the format to &M:0..1-M:0..* or similar and split on the & to separate multiplicity from any target class entered
                 {//Do the default parent class
-                    SQLOF.WriteLine(AssociationString1, g.ToString(), g1.ToString(),  RetainedClassName, subattribute);
+
+                    SQLOF.WriteLine(AssociationString1, g.ToString(), g1.ToString(), RetainedClassName, subattribute, multiplicity1, multiplicity2);
+                    return;
+                }
+                else if (targetClass.Equals(""))
+                {//Do the parent class explicitly specified
+                 //    SQLOF.WriteLine(AssociationString2, g.ToString(), RetainedClassName, subattribute, inheritsFrom);
+                 /* SQLOF.WriteLine(AssociationString2, RetainedClassName, subattribute, inheritsFrom); */
+                    SQLOF.WriteLine(AssociationString2, g.ToString(), g1.ToString(), RetainedClassName, subattribute, multiplicity1, multiplicity2);
                     return;
                 }
                 else
-                {//Do the parent class explicitly specified
-                 //    SQLOF.WriteLine(AssociationString2, g.ToString(), RetainedClassName, subattribute, inheritsFrom);
-                    SQLOF.WriteLine(AssociationString2, RetainedClassName, subattribute, inheritsFrom);
+                {
+                    SQLOF.WriteLine("\n-- Start of an association with a class name that is different!!!\n");
+                    
+                    SQLOF.WriteLine(AssociationString3, g.ToString(), g1.ToString(), targetClass, RetainedClassName,subattribute, multiplicity1, multiplicity2);
+
+                    SQLOF.WriteLine("\n-- End of an association with a class name that is different!!!\n\n");
                     return;
                 }
             }
