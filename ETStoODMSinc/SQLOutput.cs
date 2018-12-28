@@ -87,6 +87,7 @@ namespace ETStoODMSIncremental
          * 
          * First is for when parent class has not been explicitly specified
          * Second is when Parent class has been specified
+         * Third is when Parent class is a CIM Class
          * */
 
         /* public static string AssociationString1 = "ALTER TABLE  [{0}] \n ADD [FK_{0}_{1}] uniqueidentifier NULL;\n ALTER TABLE  [{0}] \n" +
@@ -100,6 +101,7 @@ namespace ETStoODMSIncremental
 
         public static string AssociationString3 = "EXEC AddAssociation '{0}', 'cim:{3}', 'cim:{3}.{2}','{1}','aep:{2}.{3}','{4}ID', 1,'{5}', '{6}', 'AEP';\nGO\n";
 
+        //STrictly for voltagelevel association testing.  Would need to blank comments if used more generally.
           public static string AssociationString4 = "Declare @id1 uniqueidentifier;\n" +
                                               "Declare @id2 uniqueidentifier;\n SET @id1 = NEWID();\n SET @id2 = NEWID();\n" +
                                               "INSERT INTO Resources(OID, URI, ResourceType, TableName, ColumnName)\n" +
@@ -262,7 +264,7 @@ namespace ETStoODMSIncremental
                 multiplicity2 = multiplicity.Split('-').Last();
                 /*   if (inheritsFrom.Equals("") || inheritsFrom.Contains("M:"))  //This may need tweaking for when to use */
                 if (targetClass.Equals("") && RetainedClassName.Contains("AEP_"))  //This may need tweaking for when to use
-                                                                                   //From now on it will never be empty and an association as every association must have a multiplicity entry and possibly a target class
+                                                                                   //From now on it will never be empty as every association must have a multiplicity entry and possibly a target class
                                                                                    //This could test for a blank and throw an error indicating it ran into a wrongly entered row....
                                                                                    //Change the format to &M:0..1-M:0..* or similar and split on the & to separate multiplicity from any target class entered
                 {//Do the default parent class
@@ -278,7 +280,7 @@ namespace ETStoODMSIncremental
                     return;
                 }
                 else
-                {
+                {// Right now just pointing to a CIM class name as the target
                     SQLOF.WriteLine("\n-- Start of an association with a class name that is different!!!\n");
                     
                     SQLOF.WriteLine(AssociationString3, g.ToString(), g1.ToString(), targetClass, RetainedClassName,subattribute, multiplicity1, multiplicity2);
