@@ -15,6 +15,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.”
 using System;
 using System.IO;
 using System.Text;
+using System.Linq;
 using System.Collections.Generic;
 using Excel = Microsoft.Office.Interop.Excel;
 
@@ -43,6 +44,7 @@ namespace ETStoODMSIncremental
         public static string scomp1 = "newKind";
         public static string scomp2 = "NewClass";
         public static string dataType;
+        public static string holder = "";
 
         public static Excel.Worksheet sheet = null;
         public static Excel.Workbook workbook = null;
@@ -256,7 +258,17 @@ namespace ETStoODMSIncremental
 
                 if (Program.m_ExTextFile)
                 {
-                    EOF.WriteLine("    " + extension.Details);                       //Spit out as-is for right now
+           
+                    //Strip off the leading '&' if present
+                    if (extension.Details.Contains("&"))
+                        {
+                        holder = extension.Details.ToString().Split('&').Last().Trim();                     
+                    }
+                    else
+                    {
+                        holder = extension.Details.ToString();
+                    }
+                    EOF.WriteLine("    " + holder);                       //Spit out as-is for right now
 
                     EOF.WriteLine(); //Line spacer
                 }
