@@ -22,21 +22,21 @@ using System.IO;
 
 namespace ETStoODMSIncremental
 {
-	class IncrementalFile
-	{
-		XDocument incrementalDocument;
+    class IncrementalFile
+    {
+        XDocument incrementalDocument;
 
-		string incrementalFileName;
+        string incrementalFileName;
         string incrementalReferenceFileName;
 
-		XNamespace cimNS = "http://iec.ch/TC57/2013/CIM-schema-cim16#";
-		XNamespace dmNS = "http://iec.ch/2002/schema/CIM_difference_model#";
+        XNamespace cimNS = "http://iec.ch/TC57/2013/CIM-schema-cim16#";
+        XNamespace dmNS = "http://iec.ch/2002/schema/CIM_difference_model#";
         XNamespace aepNS = "http://aep.com/2018/aep-extensions#";
-		XNamespace rdfNS;
+        XNamespace rdfNS;
 
-		string currentClassName;
+        string currentClassName;
         string currentClassMappingName;
-		string currentRDFid;
+        string currentRDFid;
 
         XElement currentElement;
         XElement methodElement;
@@ -44,11 +44,11 @@ namespace ETStoODMSIncremental
 
         List<XElement> methodElements;
 
-		public IncrementalFile(string incrementalFileName, XNamespace rdfNamespace)
-		{
-			rdfNS = rdfNamespace;
+        public IncrementalFile(string incrementalFileName, XNamespace rdfNamespace)
+        {
+            rdfNS = rdfNamespace;
 
-			this.incrementalFileName = incrementalFileName;
+            this.incrementalFileName = incrementalFileName;
             incrementalReferenceFileName = Path.Combine(
                 Path.GetDirectoryName(incrementalFileName),
                 Path.GetFileNameWithoutExtension(incrementalFileName),
@@ -59,25 +59,25 @@ namespace ETStoODMSIncremental
 
             methodElements = new List<XElement>();
 
-			Utils.WriteTimeToConsoleAndLog(String.Format("Initializing incremental file {0}.", incrementalFileName));
+            Utils.WriteTimeToConsoleAndLog(String.Format("Initializing incremental file {0}.", incrementalFileName));
 
-			incrementalDocument =
-				new XDocument(
-					new XDeclaration("1.0", "UTF-8", null),
-					new XElement(rdfNS + "RDF",
-						new XAttribute(XNamespace.Xmlns + "rdf", rdfNS),
-						new XAttribute(XNamespace.Xmlns + "cim", cimNS),
+            incrementalDocument =
+                new XDocument(
+                    new XDeclaration("1.0", "UTF-8", null),
+                    new XElement(rdfNS + "RDF",
+                        new XAttribute(XNamespace.Xmlns + "rdf", rdfNS),
+                        new XAttribute(XNamespace.Xmlns + "cim", cimNS),
                         new XAttribute(XNamespace.Xmlns + "aep", aepNS),
-						new XAttribute(XNamespace.Xmlns + "dm", dmNS),
-						new XElement(dmNS + "DifferenceModel",
-							new XAttribute(rdfNS + "about", "urn:uuid:" + Guid.NewGuid()),
-							new XElement(dmNS + "preconditions",
-								new XAttribute(rdfNS + "parseType", "Statements")),
-							new XElement(dmNS + "reverseDifferences",
-								new XAttribute(rdfNS + "parseType", "Statements")),
-							new XElement(dmNS + "forwardDifferences",
-								new XAttribute(rdfNS + "parseType", "Statements")))));
-		}
+                        new XAttribute(XNamespace.Xmlns + "dm", dmNS),
+                        new XElement(dmNS + "DifferenceModel",
+                            new XAttribute(rdfNS + "about", "urn:uuid:" + Guid.NewGuid()),
+                            new XElement(dmNS + "preconditions",
+                                new XAttribute(rdfNS + "parseType", "Statements")),
+                            new XElement(dmNS + "reverseDifferences",
+                                new XAttribute(rdfNS + "parseType", "Statements")),
+                            new XElement(dmNS + "forwardDifferences",
+                                new XAttribute(rdfNS + "parseType", "Statements")))));
+        }
 
         public void NewClass(string className, string classMappingName)
         {
@@ -109,8 +109,8 @@ namespace ETStoODMSIncremental
             NewInstance(ref methodElement, RDFid, newUndefinedClass, newClassName);
         }
         private void NewInstance(ref XElement element, string RDFid, bool newUndefinedClass, string newClassName = "")
-		{
-			currentRDFid = RDFid;
+        {
+            currentRDFid = RDFid;
 
             if (!newUndefinedClass)
             {
@@ -120,7 +120,7 @@ namespace ETStoODMSIncremental
             {
                 element = new XElement(cimNS + newClassName, new XAttribute(rdfNS + "ID", RDFid));
             }
-		}
+        }
 
         public void AddPossibleAttribute(string destination, string value, bool isRDF, bool newUndefinedClass)
         {
@@ -171,8 +171,8 @@ namespace ETStoODMSIncremental
         {
             AddAttribute(ref methodElement, destination, value, isRDF, newUndefinedClass);
         }
-		private void AddAttribute(ref XElement element, string destination, string value, bool isRDF, bool newUndefinedClass)
-		{
+        private void AddAttribute(ref XElement element, string destination, string value, bool isRDF, bool newUndefinedClass)
+        {
             if (value == null || value == string.Empty)
             {
                 return;            // null value - no need to add this.
@@ -181,11 +181,11 @@ namespace ETStoODMSIncremental
             if (value.Contains("http:"))
             {
                 isRDF = true;
-//                value = "rdf:resource=" + value;
+                //                value = "rdf:resource=" + value;
             }
 
             XName currentXName;
-            
+
             if (destination.Contains("AEP_"))
             {
                 currentXName = aepNS + destination;
@@ -244,9 +244,29 @@ namespace ETStoODMSIncremental
         }
 
         public void Save()
-		{
-			incrementalDocument.Save(incrementalFileName);
-		}
+        {
+            RemoveEmptyElements();
+
+            incrementalDocument.Save(incrementalFileName);
+        }
+
+        private void RemoveEmptyElements()
+        {
+            List<XElement> elList =
+                incrementalDocument
+                    .Element(rdfNS + "RDF")
+                        .Element(dmNS + "DifferenceModel")
+                            .Element(dmNS + "forwardDifferences")
+                                .Elements().ToList<XElement>();
+
+            foreach (XElement el in elList)
+            {
+                if (!el.HasElements)
+                {
+                    el.Remove();
+                }
+            }
+        }
         public void WriteDocToConsole()
         {
             Console.WriteLine();
