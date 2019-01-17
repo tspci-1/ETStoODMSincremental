@@ -81,7 +81,7 @@ namespace ETStoODMSIncremental
         public static string createTableName="";
         public static Boolean createTableNameFlag = false;
         public static Boolean aepAttributeFlag = false;
-        public static Boolean propertyConstraintFlag = true;
+        public static Boolean propertyConstraintFlag = false;
 
         /*Alter Table strings
          * 
@@ -101,8 +101,20 @@ namespace ETStoODMSIncremental
 
         public static string AssociationString3 = "EXEC AddAssociation '{0}', 'cim:{3}', 'cim:{3}.{2}','{1}','aep:{2}.{3}','{4}ID', 1,'{5}', '{6}', 'AEP';\nGO\n";
 
+        public static string AssociationString4 = "UPDATE Resources \nSET URI = 'aep:{3}.{4}' \nWHERE URI = 'cim:{3}.{2}' \nGO\n\n" +
+                                                  "UPDATE Resources \nSET URI = 'aep:{4}.{3}' \nWHERE URI = 'aep:{2}.{3}' \nGO\n\n" +
+                                                  "UPDATE Property  \nSET rdf_ID = '{3}.{4}' \nWHERE rdf_ID = '{3}.{2}' \nGO\n\n" +
+                                                  "UPDATE Property \nSET rdf_ID = '{4}.{3}', \ncims_multiplicity = '{5}', \n" +
+                                                  "MultiplicityID = (Select OID FROM Resources r where r.URI = '{5}') \nWHERE rdf_ID = '{2}.{3}' \nGO\n\n";
+
+        public static string AssociationString5 = "UPDATE Resources \nSET URI = 'aep:{3}.{4}' \nWHERE URI = 'cim:{3}.{2}' \nGO\n\n" +
+                                                  "UPDATE Resources \nSET URI = 'aep:{4}.{3}s' \nWHERE URI = 'aep:{2}.{3}' \nGO\n\n" +
+                                                  "UPDATE Property  \nSET rdf_ID = '{3}.{4}' \nWHERE rdf_ID = '{3}.{2}' \nGO\n\n" +
+                                                  "UPDATE Property \nSET rdf_ID = '{4}.{3}s', \ncims_multiplicity = '{5}', \n" +
+                                                  "MultiplicityID = (Select OID FROM Resources r where r.URI = '{5}') \nWHERE rdf_ID = '{2}.{3}' \nGO\n\n";
+
         //STrictly for voltagelevel association testing.  Would need to blank comments if used more generally.
-          public static string AssociationString4 = "Declare @id1 uniqueidentifier;\n" +
+        public static string AssociationString6 = "Declare @id1 uniqueidentifier;\n" +
                                               "Declare @id2 uniqueidentifier;\n SET @id1 = NEWID();\n SET @id2 = NEWID();\n" +
                                               "INSERT INTO Resources(OID, URI, ResourceType, TableName, ColumnName)\n" +
                                               "VALUES(@id1, 'cim:{0}.{1}', 3, '{1}', '{2}ID');\n" +
@@ -241,14 +253,14 @@ namespace ETStoODMSIncremental
              * could throw a flag and call for a timeout to fix it.  5 yd penalty.
              * 
              * */
-            if (propertyConstraintFlag)
+      /*      if (propertyConstraintFlag)
             {
                 SQLOF.WriteLine("\nALTER TABLE[dbo].[Property] DROP CONSTRAINT[UNQ_Property]\nGO\n");
                 SQLOF.WriteLine("\nALTER TABLE [dbo].[Property] ADD  CONSTRAINT [UNQ_Property] UNIQUE NONCLUSTERED ( [rdf_ID] ASC ) " +
                                     "WITH(PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = ON, ONLINE = OFF," +
                                     "ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON[PRIMARY]\nGO\n");
                 propertyConstraintFlag = false;  //Shutdown the urge to write this out again
-            }
+            } */
 
 
             className = attribute.Split('.').First();
@@ -284,6 +296,13 @@ namespace ETStoODMSIncremental
                     SQLOF.WriteLine("\n-- Start of an association with a class name that is different!!!\n");
                     
                     SQLOF.WriteLine(AssociationString3, g.ToString(), g1.ToString(), targetClass, RetainedClassName,subattribute, multiplicity1, multiplicity2);
+                    if (!multiplicity1.Contains("*"))
+                    {
+                        SQLOF.WriteLine(AssociationString4, g.ToString(), g1.ToString(), targetClass, RetainedClassName, subattribute, multiplicity1, multiplicity2);
+                    } else
+                    { //Add 's' to end for '*' multiplicity
+                        SQLOF.WriteLine(AssociationString5, g.ToString(), g1.ToString(), targetClass, RetainedClassName, subattribute, multiplicity1, multiplicity2); 
+                    }
 
                     SQLOF.WriteLine("\n-- End of an association with a class name that is different!!!\n\n");
                     return;
