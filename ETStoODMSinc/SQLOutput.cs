@@ -133,7 +133,7 @@ namespace ETStoODMSIncremental
                                               "' FOREIGN KEY REFERENCES {0} (OID)'  FROM Resources WHERE URI = 'cim:{1}')\n" +
                                               "EXEC(@sql)\n\n";
 
-        public static string EnumerationStringClass1 = "EXEC AddClass '{0}',NULL, 'aep:{1}', 0, 1;\nGO\n\n";
+        public static string EnumerationStringClass1 = "EXEC AddClass '{0}',NULL, 'aep:{1}', 0, 1;\nGO\n\n"; //Enumerations have no parent
         public static string EnumerationStringItem1 = "EXEC AddEnum '{0}','aep:{1}','{2}';\nGO\n\n";
 
         /* Args for addProp
