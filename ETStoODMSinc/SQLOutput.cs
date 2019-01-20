@@ -131,7 +131,10 @@ namespace ETStoODMSIncremental
                                               "\nDeclare @sql nvarchar(4000);\n" +
                                               "SET @sql = (SELECT 'ALTER TABLE {1} ADD {2}ID uniqueidentifier NULL ' +" +
                                               "' FOREIGN KEY REFERENCES {0} (OID)'  FROM Resources WHERE URI = 'cim:{1}')\n" +
-                                              "EXEC(@sql)\n\n"; 
+                                              "EXEC(@sql)\n\n";
+
+        public static string EnumerationStringClass1 = "EXEC AddClass '{0}',NULL, 'aep:{1}', 0, 1;\nGO\n\n";
+        public static string EnumerationStringItem1 = "EXEC AddEnum '{0}','aep:{1}','{2}';\nGO\n\n";
 
         /* Args for addProp
     * {0} = NEWID()
@@ -173,9 +176,9 @@ namespace ETStoODMSIncremental
             /* Removed the need to edit the entire configuration workbook
              * 
              * */
-        aepAttributeFlag = false;
+            aepAttributeFlag = false;
 
-            if (attribute.Contains("AEP_"))   
+            if (attribute.Contains("AEP_"))
             {
                 attribute = attribute.Substring(4);
                 aepAttributeFlag = true;
@@ -220,7 +223,7 @@ namespace ETStoODMSIncremental
             if (classNameChange)
             { // Depends on whether table is in cim namespace or pti namespace
                 if (!(inheritsFrom.Equals("") || inheritsFrom.Contains("M:")) && !attribute.Contains(".")) //This ignores the multiplicity entries? Check this with walk-through!!!!*****
-              //if (!(inheritsFrom.Equals("")) && !attribute.Contains(".")) - original code
+                                                                                                           //if (!(inheritsFrom.Equals("")) && !attribute.Contains(".")) - original code
                 { //This is when we are creating a table
 
                     g = Guid.NewGuid();
@@ -233,7 +236,7 @@ namespace ETStoODMSIncremental
                 else
                     if (!attribute.Contains("."))
                 {
-                    g = Guid.NewGuid(); 
+                    g = Guid.NewGuid();
                     createTableNameFlag = true;
                     createTableName = attribute;
                     subClassOf = "Resources";  //Sort of like the Elephant graveyard, where all classes without parents go to link...
@@ -253,14 +256,14 @@ namespace ETStoODMSIncremental
              * could throw a flag and call for a timeout to fix it.  5 yd penalty.
              * 
              * */
-      /*      if (propertyConstraintFlag)
-            {
-                SQLOF.WriteLine("\nALTER TABLE[dbo].[Property] DROP CONSTRAINT[UNQ_Property]\nGO\n");
-                SQLOF.WriteLine("\nALTER TABLE [dbo].[Property] ADD  CONSTRAINT [UNQ_Property] UNIQUE NONCLUSTERED ( [rdf_ID] ASC ) " +
-                                    "WITH(PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = ON, ONLINE = OFF," +
-                                    "ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON[PRIMARY]\nGO\n");
-                propertyConstraintFlag = false;  //Shutdown the urge to write this out again
-            } */
+            /*      if (propertyConstraintFlag)
+                  {
+                      SQLOF.WriteLine("\nALTER TABLE[dbo].[Property] DROP CONSTRAINT[UNQ_Property]\nGO\n");
+                      SQLOF.WriteLine("\nALTER TABLE [dbo].[Property] ADD  CONSTRAINT [UNQ_Property] UNIQUE NONCLUSTERED ( [rdf_ID] ASC ) " +
+                                          "WITH(PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = ON, ONLINE = OFF," +
+                                          "ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON[PRIMARY]\nGO\n");
+                      propertyConstraintFlag = false;  //Shutdown the urge to write this out again
+                  } */
 
 
             className = attribute.Split('.').First();
@@ -294,19 +297,43 @@ namespace ETStoODMSIncremental
                 else
                 {// Right now just pointing to a CIM class name as the target
                     SQLOF.WriteLine("\n-- Start of an association with a class name that is different!!!\n");
-                    
+
                     SQLOF.WriteLine(AssociationString3, g.ToString(), g1.ToString(), targetClass, RetainedClassName,subattribute, multiplicity1, multiplicity2);
                     if (!multiplicity1.Contains("*"))
                     {
                         SQLOF.WriteLine(AssociationString4, g.ToString(), g1.ToString(), targetClass, RetainedClassName, subattribute, multiplicity1, multiplicity2);
                     } else
                     { //Add 's' to end for '*' multiplicity
-                        SQLOF.WriteLine(AssociationString5, g.ToString(), g1.ToString(), targetClass, RetainedClassName, subattribute, multiplicity1, multiplicity2); 
+                        SQLOF.WriteLine(AssociationString5, g.ToString(), g1.ToString(), targetClass, RetainedClassName, subattribute, multiplicity1, multiplicity2);
                     }
 
                     SQLOF.WriteLine("\n-- End of an association with a class name that is different!!!\n\n");
                     return;
                 }
+            }
+
+            /*
+             * Here is where to put the code for newEnum.
+             * You're interested in the dtatype = newEnum, the attribute and the inheritsFrom strings.
+             * Then get out.
+             * */
+
+            if (dataType.Equals("newEnum"))
+            {
+                //Create the enumeration class
+                g = Guid.NewGuid();
+                SQLOF.WriteLine(EnumerationStringClass1,g.ToString(),attribute);
+
+            //Create the actual enumerations
+            String[] items = inheritsFrom.TrimStart('(').TrimEnd(')').Split(',');
+
+            foreach (string item in items)
+            {
+                    g = Guid.NewGuid();
+                    SQLOF.WriteLine(EnumerationStringItem1,g.ToString(),attribute,item);
+            }
+
+            return;
             }
 
             /* CIM dataTypes are not SQL Server dataTypes
