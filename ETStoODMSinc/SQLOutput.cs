@@ -49,6 +49,9 @@ namespace ETStoODMSIncremental
         public static string targetClass = "";
         public static Guid g, g1;
         public static SortedDictionary<string, string> ClassAttributes = new SortedDictionary<string, string>();  //used to filter out duplicates
+        public static string target2MapTable = "";
+        public static string col1MapName = "";
+        public static string col2MapName = "";
 
         /* Create Table strings
          * 
@@ -57,46 +60,29 @@ namespace ETStoODMSIncremental
          * See ODMS AddClass SP for usage
          * */
 
-        /*      public static string createTable1 = "\nCREATE TABLE AEP_{0}\n" +
-                                                  "(OID uniqueidentifier, CONSTRAINT PK_AEP_{0} PRIMARY KEY NONCLUSTERED (OID))\n" +
-                                                  "ALTER TABLE  [AEP_{0}] ADD CONSTRAINT FK_AEP_{0}Base FOREIGN KEY(OID) REFERENCES {1}(OID)\n" +
-                                                  "ON DELETE CASCADE;\n" +
-                                                  "EXEC AddClass '{{{2}}}','cim:{1}', 'aep:AEP_{0}', 0, 0;\n" +
-                                                  "GO\n "; */
-        public static string createTable1 =  "\nEXEC AddClass '{{{2}}}','cim:{1}', 'aep:AEP_{0}', 1, 0;\n" +
+        public static string createTable1 = "\nEXEC AddClass '{{{2}}}','cim:{1}', 'aep:AEP_{0}', 1, 0;\n" +
+                                             "GO\n ";
+
+        public static string createTable2 = "\nEXEC AddClass '{{{2}}}','pti:{1}', 'aep:AEP_{0}', 0, 0;\n" +
+                                             "GO\n  ";
+
+        public static string createTable3 = "\nEXEC AddClass '{{{2}}}','aep:{1}', 'aep:{0}', 1, 0;\n" + // for the manyTOmany tables
                                              "GO\n ";
 
 
-        /* public static string createTable2 = "\nCREATE TABLE AEP_{0}\n" +
-                                             "(OID uniqueidentifier, CONSTRAINT PK_AEP_{0} PRIMARY KEY NONCLUSTERED (OID))\n" +
-                                             "ALTER TABLE  [AEP_{0}] ADD CONSTRAINT FK_AEP_{0}Base FOREIGN KEY(OID) REFERENCES {1}(OID)\n" +
-                                             "ON DELETE CASCADE;\n" +
-                                             "EXEC AddClass '{{{2}}}','pti:{1}', 'aep:AEP_{0}', 0, 0;\n" +
-                                             "GO\n "; */
-        public static string createTable2 =  "\nEXEC AddClass '{{{2}}}','pti:{1}', 'aep:AEP_{0}', 0, 0;\n" +
-                                             "GO\n  ";
-
-     /*   public static string alterTable = "ALTER TABLE {0} \nADD CONSTRAINT FK_{1} FOREIGN KEY(OID) REFERENCES {0}(OID) ON DELETE CASCADE;\nGO\n"; */
-
-        public static string createTableName="";
+        public static string createTableName = "";
         public static Boolean createTableNameFlag = false;
         public static Boolean aepAttributeFlag = false;
         public static Boolean propertyConstraintFlag = false;
 
-        /*Alter Table strings
-         * 
+        /* * 
          * First is for when parent class has not been explicitly specified
          * Second is when Parent class has been specified
          * Third is when Parent class is a CIM Class
          * */
 
-        /* public static string AssociationString1 = "ALTER TABLE  [{0}] \n ADD [FK_{0}_{1}] uniqueidentifier NULL;\n ALTER TABLE  [{0}] \n" +
-                                                                               "ADD CONSTRAINT [FK_{0}_{1}] FOREIGN KEY(OID) REFERENCES {1}(OID);\nGO\n"; */
         public static string AssociationString1 = "EXEC AddAssociation '{0}', 'aep:{2}', 'aep:{2}.{3}','{1}','cim:{3}.{2}',NULL, 1,'{4}', '{5}', 'AEP';\nGO\n";
 
-
-        /*public static string AssociationString2 = "ALTER TABLE  [{0}] \n ADD [FK_{0}_{1}] uniqueidentifier NULL;\n ALTER TABLE  [{0}] \n" +
-                                                                                "ADD CONSTRAINT [FK_{0}_{1}] FOREIGN KEY(OID) REFERENCES {2}(OID);\nGO\n"; */
         public static string AssociationString2 = "EXEC AddAssociation '{0}', 'cim:{2}', 'cim:{2}.{3}','{1}','aep:{3}.{2}',NULL, 1,'{4}', '{5}', 'AEP';\nGO\n";
 
         public static string AssociationString3 = "EXEC AddAssociation '{0}', 'cim:{3}', 'cim:{3}.{2}','{1}','aep:{2}.{3}','{4}ID', 1,'{5}', '{6}', 'AEP';\nGO\n";
@@ -113,28 +99,101 @@ namespace ETStoODMSIncremental
                                                   "UPDATE Property \nSET rdf_ID = '{4}.{3}s', \ncims_multiplicity = '{5}', \n" +
                                                   "MultiplicityID = (Select OID FROM Resources r where r.URI = '{5}') \nWHERE rdf_ID = '{2}.{3}' \nGO\n\n";
 
-        //STrictly for voltagelevel association testing.  Would need to blank comments if used more generally.
-        public static string AssociationString6 = "Declare @id1 uniqueidentifier;\n" +
-                                              "Declare @id2 uniqueidentifier;\n SET @id1 = NEWID();\n SET @id2 = NEWID();\n" +
-                                              "INSERT INTO Resources(OID, URI, ResourceType, TableName, ColumnName)\n" +
-                                              "VALUES(@id1, 'cim:{0}.{1}', 3, '{1}', '{2}ID');\n" +
-                                              "INSERT INTO Resources(OID, URI, ResourceType, TableName, ColumnName)\n" +
-                                              "VALUES(@id2, 'cim:{1}.{0}s', 3, '{0}', NULL);" +
-                                              "INSERT INTO Property(PropertyID, ClassID, rdf_ID, rdfs_label, rdfs_comment, rdfs_domain, rdfs_range, cims_multiplicity,cims_inverseRoleName)\n" +
-                                              "VALUES(@id1, (SELECT ClassID FROM CLASS WHERE rdf_id = '{0}' AND ClassType = 'Class'), '{0}.{1}', '{1}'," +
-                                              "'The {1} of the voltage level.', '{0}', '{1}', '{4}', '{1}.{0}');\n" +
-                                              "INSERT INTO Property(PropertyID, ClassID, rdf_ID, rdfs_label, rdfs_comment, rdfs_domain, rdfs_range, cims_multiplicity,cims_inverseRoleName)\n" +
-                                              "VALUES(@id2, (SELECT ClassID FROM CLASS WHERE rdf_id = '{1}' AND ClassType = 'Class'), '{1}.{0}'," +
-                                              "'{0}', 'The FAR voltage levels within this {1}.', '{1}', '{2}ID', '{3}', '{0}.{1}');\n" +
-                                              "UPDATE Property SET InverseRoleNameID = @id2 WHERE PropertyID = @id1;\n" +
-                                              "UPDATE Property SET InverseRoleNameID = @id1 WHERE PropertyID = @id2;\n" +
-                                              "\nDeclare @sql nvarchar(4000);\n" +
-                                              "SET @sql = (SELECT 'ALTER TABLE {1} ADD {2}ID uniqueidentifier NULL ' +" +
-                                              "' FOREIGN KEY REFERENCES {0} (OID)'  FROM Resources WHERE URI = 'cim:{1}')\n" +
-                                              "EXEC(@sql)\n\n";
+        public static string AssociationString6 = "EXEC AddAssociation '{0}', 'aep:{2}', 'aep:{2}.{3}','{1}','aep:{3}.{2}','{4}', 1,'{5}', '{6}', 'AEP';\nGO\n";
+
+        public static string RAString60 = "INSERT INTO Resources (OID, URI, ResourceType, TableName, ColumnName)\n" +
+                                                         "SELECT '{0}', 'aep:{2}.{3}', 3, '{4}', NULL \nGO\n\n" +
+
+                                                         "INSERT INTO Resources (OID, URI, ResourceType, TableName, ColumnName)\n" +
+                                                         "SELECT '{1}', 'aep:{3}.{2}', 3, '{2}', '{3}'\nGO\n\n" +
+
+                                                         "ALTER TABLE Property NOCHECK CONSTRAINT ALL\nGO\n\n" +
+
+                                                         "INSERT INTO Property (PropertyID, ClassID, RangeID, MultiplicityID, InverseRoleNameID, rdf_ID," +
+                                                         " rdfs_label, rdfs_domain, rdfs_range, cims_profile, cims_multiplicity, cims_inverseRoleName)\n" +
+
+                                                         "SELECT '{0}', Class.ClassID, rng.ClassID, mult.OID, '{1}'," +
+                                                         "'{2}.{3}', '{3}', '{2}', '{3}','AEP'," +
+                                                         "'M:0..*', '{3}.{2}' \nFROM Class, Class rng, Resources mult" +
+                                                         "\n WHERE Class.rdf_ID = '{2}'" +
+                                                         "\n AND rng.rdf_ID = '{4}'" +
+                                                         "\n AND mult.URI = 'cims:' + 'M:0..*' \nGO\n\n" +
+
+                                                         "INSERT INTO Property (PropertyID, ClassID, RangeID, MultiplicityID, InverseRoleNameID, rdf_ID, rdfs_label, rdfs_domain, rdfs_range," +
+                                                         "cims_profile, cims_multiplicity, cims_inverseRoleName)\n" +
+
+                                                         "SELECT '{1}', Class.ClassID, rng.ClassID, mult.OID, '{0}'," +
+                                                         "'{3}.{2}', '{2}', '{3}', '{2}', 'AEP'," +
+                                                         "'M:0..*', '{2}.{3}' \nFROM Class, Class rng, Resources mult" +
+                                                         "\n WHERE Class.rdf_ID = '{4}'" +
+                                                         "\n AND rng.rdf_ID = '{2}'" +
+                                                         "\n AND mult.URI = 'cims:' + 'M:0..*' \nGO\n\n" +
+
+                                                         "ALTER TABLE Property WITH CHECK CHECK CONSTRAINT ALL\nGO\n\n" +
+
+                                                         "ALTER TABLE {2} ADD {3} uniqueidentifier NULL FOREIGN KEY REFERENCES {4} (OID)\nGO\n\n";
+
+        public static string RAString61 = "INSERT INTO Resources (OID, URI, ResourceType, TableName, ColumnName)\n" +
+                                                 "SELECT '{0}', 'aep:{2}.{3}', 3, '{4}', NULL \nGO\n\n" +
+
+                                                 "INSERT INTO Resources (OID, URI, ResourceType, TableName, ColumnName)\n" +
+                                                 "SELECT '{1}', 'aep:{3}.{2}', 3, '{2}', '{3}'\nGO\n\n" +
+
+                                                 "ALTER TABLE Property NOCHECK CONSTRAINT ALL\nGO\n\n" +
+
+                                                 "INSERT INTO Property (PropertyID, ClassID, RangeID, MultiplicityID, InverseRoleNameID, rdf_ID," +
+                                                 " rdfs_label, rdfs_domain, rdfs_range, cims_profile, cims_multiplicity, cims_inverseRoleName)\n" +
+
+                                                 "SELECT '{0}', Class.ClassID, rng.ClassID, mult.OID, '{1}'," +
+                                                 "'{2}.{3}', '{3}', '{2}', '{3}','AEP'," +
+                                                 "'M:0..*', '{3}.{2}' \nFROM Class, Class rng, Resources mult" +
+                                                 "\n WHERE Class.rdf_ID = '{2}'" +
+                                                 "\n AND rng.rdf_ID = '{4}'" +
+                                                 "\n AND mult.URI = 'cims:' + 'M:0..*' \nGO\n\n" +
+
+                                                 "INSERT INTO Property (PropertyID, ClassID, RangeID, MultiplicityID, InverseRoleNameID, rdf_ID, rdfs_label, rdfs_domain, rdfs_range," +
+                                                 "cims_profile, cims_multiplicity, cims_inverseRoleName)\n" +
+
+                                                 "SELECT '{1}', Class.ClassID, rng.ClassID, mult.OID, '{0}'," +
+                                                 "'{3}.{2}', '{2}', '{3}', '{2}', 'AEP'," +
+                                                 "'M:0..*', '{2}.{3}' \nFROM Class, Class rng, Resources mult" +
+                                                 "\n WHERE Class.rdf_ID = '{4}'" +
+                                                 "\n AND rng.rdf_ID = '{2}'" +
+                                                 "\n AND mult.URI = 'cims:' + 'M:0..*' \nGO\n\n" +
+
+                                                 "ALTER TABLE Property WITH CHECK CHECK CONSTRAINT ALL\nGO\n\n" +
+
+                                                 "ALTER TABLE {2} ADD {3} uniqueidentifier NULL FOREIGN KEY REFERENCES {4} (OID)\nGO\n\n";
+
+        public static string AssociationString7 = "UPDATE Resources \nSET URI = 'aep:{1}1.{0}' \nWHERE URI = 'aep:{1}.{0}' \nGO\n\n" +
+                                                  "UPDATE Resources \nSET URI = 'aep:{0}.{1}1' \nWHERE URI = 'aep:{0}.{1}' \nGO\n\n" +
+                                                  "UPDATE Property  \nSET rdf_ID = '{1}1.{0}' \nWHERE rdf_ID = '{1}.{0}' \nGO\n\n" +
+                                                  "UPDATE Property  \nSET cims_inverseRoleName = '{1}1.{0}' \nWHERE cims_inverseRoleName = '{1}.{0}' \nGO\n\n" +
+                                                  "UPDATE Property \nSET rdf_ID = '{0}.{1}1' \nWHERE rdf_ID = '{0}.{1}' \nGO\n\n" +
+                                                  "UPDATE Property \nSET cims_inverseRoleName = '{0}.{1}1' \nWHERE cims_inverseRoleName = '{0}.{1}' \nGO\n\n";
+
+        public static string AssociationString8 = "UPDATE Resources \nSET URI = 'aep:{1}2.{0}' \nWHERE URI = 'aep:{1}.{0}' \nGO\n\n" +
+                                                  "UPDATE Resources \nSET URI = 'aep:{0}.{1}2' \nWHERE URI = 'aep:{0}.{1}' \nGO\n\n" +
+                                                  "UPDATE Property  \nSET rdf_ID = '{1}2.{0}' \nWHERE rdf_ID = '{1}.{0}' \nGO\n\n" +
+                                                  "UPDATE Property  \nSET cims_inverseRoleName = '{1}2.{0}' \nWHERE cims_inverseRoleName = '{1}.{0}' \nGO\n\n" +
+                                                  "UPDATE Property \nSET rdf_ID = '{0}.{1}2' \nWHERE rdf_ID = '{0}.{1}' \nGO\n\n" +
+                                                  "UPDATE Property \nSET cims_inverseRoleName = '{0}.{1}2' \nWHERE cims_inverseRoleName = '{0}.{1}' \nGO\n\n";
+
+        /* public static string AssociationString8 = "UPDATE Resources \nSET URI = 'aep:{1}.{0}2' \nWHERE URI = 'aep:{1}.{0}' \nGO\n\n" +
+                                                   "UPDATE Resources \nSET URI = 'aep:{0}2.{1}' \nWHERE URI = 'aep:{0}.{1}' \nGO\n\n" +
+                                                   "UPDATE Property  \nSETcims_inverseRoleName = '{1}.{0}2' \nWHERE cims_inverseRoleName = '{1}.{0}' \nGO\n\n" +
+                                                   "UPDATE Property \nSET rdf_ID = '{0}2.{1}' \nWHERE rdf_ID = '{0}.{1}' \nGO\n\n"; */
 
         public static string EnumerationStringClass1 = "EXEC AddClass '{0}',NULL, 'aep:{1}', 0, 1;\nGO\n\n"; //Enumerations have no parent
         public static string EnumerationStringItem1 = "EXEC AddEnum '{0}','aep:{1}','{2}';\nGO\n\n";
+
+        public static string TapChangerString1 = "EXEC AddAssociation '{0}', 'cim:TapChanger', 'cim:TapChanger.TapChanger','{1}','aep:AEP_TapChanger.TapChanger','AEP_TapChangerID', 1,'M:0..*', 'M:0..1', 'AEP';\nGO\n\n" +
+                                                 "UPDATE Resources\n SET URI = 'aep:TapChanger.AEP_TapChanger'   --changed URI\n" +
+                                                 "WHERE URI = 'cim:TapChanger.TapChanger'--original URI\nGO\n\n" +
+                                                 "UPDATE Resources\n SET URI = 'aep:TapChanger.AEP_TapChangers' --multiplicity URI 's' added\n WHERE URI = 'aep:TapChanger.AEP_TapChanger' --changed URI\nGO\n\n" +
+                                                 "UPDATE Property\n SET rdf_ID = 'TapChanger.AEP_TapChanger' --modified URI\n WHERE rdf_ID = 'TapChanger.TapChanger'--original URI\nGO\n\n" +
+                                                 "UPDATE Property\n SET cims_inverseRoleName = 'TapChanger.AEP_TapChangers'--, --multiplicity URI 's' added\n" +
+                                                 "WHERE rdf_ID = 'AEP_TapChanger.TapChanger'--changed URI\nGO\n\n";
 
         /* Args for addProp
     * {0} = NEWID()
@@ -178,7 +237,7 @@ namespace ETStoODMSIncremental
              * */
             aepAttributeFlag = false;
 
-            if (attribute.Contains("AEP_"))
+            if (attribute.Contains("AEP_") && !attribute.Contains("GenerateM2M"))
             {
                 attribute = attribute.Substring(4);
                 aepAttributeFlag = true;
@@ -219,7 +278,7 @@ namespace ETStoODMSIncremental
                 return;
             }
 
-
+            //Check to see if we need to create a class table
             if (classNameChange)
             { // Depends on whether table is in cim namespace or pti namespace
                 if (!(inheritsFrom.Equals("") || inheritsFrom.Contains("M:")) && !attribute.Contains(".")) //This ignores the multiplicity entries? Check this with walk-through!!!!*****
@@ -249,6 +308,41 @@ namespace ETStoODMSIncremental
 
             }
 
+            //Hardcode for tapchanger.tapchange, for now.
+            if (attribute.Contains("TapChanger.TapChanger"))
+            {
+                g = Guid.NewGuid();
+                g1 = Guid.NewGuid();
+                //Feed in the canned sql
+                SQLOF.WriteLine("\n-- Start of hardcoded TapChanger.TapChanger association\n\n");
+                SQLOF.WriteLine(TapChangerString1, g.ToString(), g1.ToString());
+                SQLOF.WriteLine("\n-- End of hardcoded TapChanger.TapChanger association\n\n");
+                return;
+            }
+
+            //Check to see if we want to create a manyTOmany mapping table
+            if (attribute.Contains("GenerateM2M"))
+            {
+                target2MapTable = attribute.Split(':').Last().Trim();
+                col1MapName = inheritsFrom.Split(':').First().TrimStart('|'); //the leading '|' is in case we ever want to stuff something in front of the column names
+                col2MapName = inheritsFrom.Split(':').Last().Trim();
+                g = Guid.NewGuid();
+                createTableName = tClassName + target2MapTable + "Map"; //{2}
+                SQLOF.WriteLine(createTable3, createTableName, tClassName, g.ToString());
+                g = Guid.NewGuid();
+                g1 = Guid.NewGuid();
+                SQLOF.WriteLine("\n-- Start of a ManyToMany class and associations\n\n");
+                // SQLOF.WriteLine(AssociationString6, g.ToString(), g1.ToString(), createTableName, tClassName, col1MapName, "M:0..*", "M:0..*"); //Always manyTOmany
+                SQLOF.WriteLine(RAString60, g.ToString(), g1.ToString(), createTableName, col1MapName, tClassName);
+                // SQLOF.WriteLine(AssociationString7, createTableName, tClassName); //Clean up the Resource and Property tables - No longer needed?
+                g = Guid.NewGuid();
+                g1 = Guid.NewGuid();
+                SQLOF.WriteLine(RAString61, g.ToString(), g1.ToString(), createTableName, col2MapName, tClassName); //, col2MapName, "M:0..*", "M:0..*"); //Always manyTOmany
+                //  SQLOF.WriteLine(AssociationString8, createTableName, tClassName); //Clean up the Resource and Property tables - No longer needed?
+                SQLOF.WriteLine("-- End of a ManyToMany class and associations\n\n\n");
+                return;
+            }
+
             /*Grab the first and last
              * Not supposed to have attributes with more than a classname 
              * and attribute name separated by a dot.  Or so I've been told.
@@ -256,15 +350,6 @@ namespace ETStoODMSIncremental
              * could throw a flag and call for a timeout to fix it.  5 yd penalty.
              * 
              * */
-            /*      if (propertyConstraintFlag)
-                  {
-                      SQLOF.WriteLine("\nALTER TABLE[dbo].[Property] DROP CONSTRAINT[UNQ_Property]\nGO\n");
-                      SQLOF.WriteLine("\nALTER TABLE [dbo].[Property] ADD  CONSTRAINT [UNQ_Property] UNIQUE NONCLUSTERED ( [rdf_ID] ASC ) " +
-                                          "WITH(PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = ON, ONLINE = OFF," +
-                                          "ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON[PRIMARY]\nGO\n");
-                      propertyConstraintFlag = false;  //Shutdown the urge to write this out again
-                  } */
-
 
             className = attribute.Split('.').First();
             subattribute = attribute.Split('.').Last();
@@ -298,11 +383,12 @@ namespace ETStoODMSIncremental
                 {// Right now just pointing to a CIM class name as the target
                     SQLOF.WriteLine("\n-- Start of an association with a class name that is different!!!\n");
 
-                    SQLOF.WriteLine(AssociationString3, g.ToString(), g1.ToString(), targetClass, RetainedClassName,subattribute, multiplicity1, multiplicity2);
+                    SQLOF.WriteLine(AssociationString3, g.ToString(), g1.ToString(), targetClass, RetainedClassName, subattribute, multiplicity1, multiplicity2);
                     if (!multiplicity1.Contains("*"))
                     {
                         SQLOF.WriteLine(AssociationString4, g.ToString(), g1.ToString(), targetClass, RetainedClassName, subattribute, multiplicity1, multiplicity2);
-                    } else
+                    }
+                    else
                     { //Add 's' to end for '*' multiplicity
                         SQLOF.WriteLine(AssociationString5, g.ToString(), g1.ToString(), targetClass, RetainedClassName, subattribute, multiplicity1, multiplicity2);
                     }
@@ -322,18 +408,18 @@ namespace ETStoODMSIncremental
             {
                 //Create the enumeration class
                 g = Guid.NewGuid();
-                SQLOF.WriteLine(EnumerationStringClass1,g.ToString(),attribute);
+                SQLOF.WriteLine(EnumerationStringClass1, g.ToString(), attribute);
 
-            //Create the actual enumerations
-            String[] items = inheritsFrom.TrimStart('(').TrimEnd(')').Split(',');
+                //Create the actual enumerations
+                String[] items = inheritsFrom.TrimStart('(').TrimEnd(')').Split(',');
 
-            foreach (string item in items)
-            {
+                foreach (string item in items)
+                {
                     g = Guid.NewGuid();
-                    SQLOF.WriteLine(EnumerationStringItem1,g.ToString(),attribute,item);
-            }
+                    SQLOF.WriteLine(EnumerationStringItem1, g.ToString(), attribute, item);
+                }
 
-            return;
+                return;
             }
 
             /* CIM dataTypes are not SQL Server dataTypes
